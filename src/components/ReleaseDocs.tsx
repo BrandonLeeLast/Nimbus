@@ -1,9 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
 
 export default function ReleaseDocs() {
   const [generating, setGenerating] = useState(false)
   const [generated, setGenerated] = useState(false)
-  const [selectedBranch, setSelectedBranch] = useState('release/v1.3.0')
+  const [branches, setBranches] = useState<any[]>([])
+  const [selectedBranch, setSelectedBranch] = useState('')
+
+  useEffect(() => {
+    fetch(`${API_URL}/branches`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setBranches(data)
+          if (data.length > 0) setSelectedBranch(data[0].name)
+        }
+      })
+      .catch(err => console.error(err))
+  }, [])
 
   const handleGenerate = () => {
     setGenerating(true)
@@ -41,8 +56,10 @@ export default function ReleaseDocs() {
                 cursor: 'pointer'
               }}
             >
-              <option value="release/v1.3.0">release/v1.3.0 (Active)</option>
-              <option value="release/v1.2.0">release/v1.2.0 (Closed)</option>
+              {branches.length === 0 && <option value="">No active branches found</option>}
+              {branches.map(b => (
+                <option key={b.id} value={b.name}>{b.name} ({b.status})</option>
+              ))}
             </select>
           </div>
 

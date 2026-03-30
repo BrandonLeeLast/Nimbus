@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react'
 import './Dashboard.css'
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
+
 export default function Dashboard() {
   const [branches, setBranches] = useState<any[]>([])
   const [hotfixes, setHotfixes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setTimeout(() => {
-      setBranches([
-        { id: '1', name: 'release/v1.2.0', status: 'active', created_by: 'alice', created_at: '2024-03-20T10:00:00Z' },
-        { id: '2', name: 'release/v1.1.0', status: 'closed', created_by: 'bob', created_at: '2024-03-05T10:00:00Z' }
-      ])
-      setHotfixes([
-        { id: '10', branch_id: 'release/v1.2.0', pr_url: 'https://gitlab.com/pr/1234', author: 'bob', developer: 'Brandon', ticket_id: 'OPENBET-3081', merged_at: '2024-03-21T14:30:00Z' },
-        { id: '11', branch_id: 'main', pr_url: 'https://gitlab.com/pr/1235', author: 'charlie', developer: 'Zweni', ticket_id: 'INDEV-3591', merged_at: '2024-03-22T09:15:00Z' }
-      ])
+    Promise.all([
+      fetch(`${API_URL}/branches`).then(res => res.json()),
+      fetch(`${API_URL}/hotfixes`).then(res => res.json())
+    ]).then(([branchesData, hotfixesData]) => {
+      setBranches(Array.isArray(branchesData) ? branchesData : [])
+      setHotfixes(Array.isArray(hotfixesData) ? hotfixesData : [])
       setLoading(false)
-    }, 800)
+    }).catch(err => {
+      console.error('Failed to fetch dashboard data:', err)
+      setLoading(false)
+    })
   }, [])
 
   return (
