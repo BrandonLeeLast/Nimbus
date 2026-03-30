@@ -26,7 +26,7 @@ export default function Dashboard() {
       const hotfixes = await hotfixesRes.json()
       const settingsArray = await settingsRes.json()
       
-      const activeSetting = settingsArray.find((s: any) => s.key === 'ACTIVE_RELEASE')
+      const activeSetting = Array.isArray(settingsArray) ? settingsArray.find((s: any) => s.key === 'ACTIVE_RELEASE') : null
       setActiveRelease(activeSetting?.value || 'Global')
 
       setStats({
