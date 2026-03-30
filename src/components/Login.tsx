@@ -4,7 +4,7 @@ import './Login.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
 
-export default function Login() {
+export default function Login({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -29,6 +29,7 @@ export default function Login() {
           login(data.token, data.user);
         } else {
           login(data.token, data.user);
+          onClose();
         }
       } else {
         setError(data.error || 'Login failed');
@@ -81,8 +82,9 @@ export default function Login() {
   }
 
   return (
-    <div className="login-overlay">
+    <div className="login-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="login-card glass">
+        <button className="close-btn" onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
         <div className="logo-glow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         </div>

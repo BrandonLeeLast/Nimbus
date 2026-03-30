@@ -11,7 +11,10 @@ export default function ReleaseDocs() {
   const [selectedBranch, setSelectedBranch] = useState('')
 
   useEffect(() => {
-    fetch(`${API_URL}/branches`, { headers: { 'Authorization': `Bearer ${token}` } })
+    const headers: any = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    
+    fetch(`${API_URL}/branches`, { headers })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

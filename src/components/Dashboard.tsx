@@ -12,10 +12,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const headers: any = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
     Promise.all([
-      fetch(`${API_URL}/branches`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
-      fetch(`${API_URL}/hotfixes`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
-      fetch(`${API_URL}/repositories`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json())
+      fetch(`${API_URL}/branches`, { headers }).then(res => res.json()),
+      fetch(`${API_URL}/hotfixes`, { headers }).then(res => res.json()),
+      fetch(`${API_URL}/repositories`, { headers }).then(res => res.json())
     ]).then(([branchesData, hotfixesData, reposData]) => {
       setBranches(Array.isArray(branchesData) ? branchesData : [])
       setHotfixes(Array.isArray(hotfixesData) ? hotfixesData : [])
