@@ -33,7 +33,7 @@ export default function Settings() {
     const settingsArray = await settingsRes.json()
     const settingsObj: any = {}
     settingsArray.forEach((s: any) => settingsObj[s.key] = s.value)
-    setSettings(prev => ({ ...prev, ...settingsObj }))
+    setSettings((prev: any) => ({ ...prev, ...settingsObj }))
   }
 
   const handleSaveSettings = async () => {

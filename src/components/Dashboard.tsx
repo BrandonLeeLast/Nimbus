@@ -5,7 +5,6 @@ import './Dashboard.css'
 const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
 
 export default function Dashboard() {
-  const { token } = useAuth()
   const [stats, setStats] = useState({ repos: 0, branches: 0, hotfixes: 0 })
   const [activeRelease, setActiveRelease] = useState('')
   const [loading, setLoading] = useState(true)
