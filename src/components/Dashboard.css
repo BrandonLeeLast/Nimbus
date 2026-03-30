@@ -10,6 +10,22 @@
   flex-direction: column;
 }
 
+.settings-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: white;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.settings-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

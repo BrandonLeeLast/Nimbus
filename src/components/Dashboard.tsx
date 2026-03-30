@@ -1,26 +1,31 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import './Dashboard.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
 
 export default function Dashboard() {
+  const { token } = useAuth()
   const [branches, setBranches] = useState<any[]>([])
   const [hotfixes, setHotfixes] = useState<any[]>([])
+  const [repos, setRepos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/branches`).then(res => res.json()),
-      fetch(`${API_URL}/hotfixes`).then(res => res.json())
-    ]).then(([branchesData, hotfixesData]) => {
+      fetch(`${API_URL}/branches`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
+      fetch(`${API_URL}/hotfixes`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
+      fetch(`${API_URL}/repositories`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json())
+    ]).then(([branchesData, hotfixesData, reposData]) => {
       setBranches(Array.isArray(branchesData) ? branchesData : [])
       setHotfixes(Array.isArray(hotfixesData) ? hotfixesData : [])
+      setRepos(Array.isArray(reposData) ? reposData : [])
       setLoading(false)
     }).catch(err => {
       console.error('Failed to fetch dashboard data:', err)
       setLoading(false)
     })
-  }, [])
+  }, [token])
 
   return (
     <div className="dashboard-layout">
@@ -45,7 +50,7 @@ export default function Dashboard() {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                 </div>
                 <div className="value">{branches.filter(b => b.status === 'active').length}</div>
-                <div className="stat-footer">Tracked across 4 repositories</div>
+                <div className="stat-footer">Tracked across {repos.length} repositories</div>
               </div>
               
               <div className="card stat-card warning-gradient">

@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://nimbus-worker-prod.brandonl-9ff.workers.dev/api';
 
 export default function ReleaseDocs() {
+  const { token } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [branches, setBranches] = useState<any[]>([])
   const [selectedBranch, setSelectedBranch] = useState('')
 
   useEffect(() => {
-    fetch(`${API_URL}/branches`)
+    fetch(`${API_URL}/branches`, { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
