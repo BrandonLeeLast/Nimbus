@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from './context/AuthContext'
-import Login from './components/Login'
-import Dashboard from './components/Dashboard'
-import Settings from './components/Settings'
-import ReleaseDocs from './components/ReleaseDocs'
+import Login from './components/Login.tsx'
+import Dashboard from './components/Dashboard.tsx'
+import Settings from './components/Settings.tsx'
+import ReleaseDocs from './components/ReleaseDocs.tsx'
 import './App.css'
 
 function App() {
