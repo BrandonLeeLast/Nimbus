@@ -7,7 +7,7 @@ export default function Settings() {
   const { token } = useAuth()
   const [repos, setRepos] = useState<any[]>([])
   const [settings, setSettings] = useState<any>({ CLEANUP_ENABLED: 'false', CLEANUP_SCHEDULE: 'weekly' })
-  const [newRepo, setNewRepo] = useState({ name: '', url: '', provider: 'github', remote_id: '' })
+  const [newRepo, setNewRepo] = useState({ name: '', url: '', provider: 'gitlab', remote_id: '' })
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('user')
   const [message, setMessage] = useState('')
@@ -184,7 +184,6 @@ export default function Settings() {
                 onChange={e => setNewRepo({...newRepo, provider: e.target.value})}
                 className="settings-input"
               >
-                <option value="github">GitHub</option>
                 <option value="gitlab">GitLab</option>
               </select>
               <input 
