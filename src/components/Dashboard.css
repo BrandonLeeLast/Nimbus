@@ -305,6 +305,13 @@
   font-family: monospace;
 }
 
+.ticket-summary-text {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
 .feed-time {
   font-size: 0.8rem;
   color: var(--text-muted);

@@ -109,7 +109,10 @@ export default function Dashboard() {
                 </div>
                 <div className="feed-content">
                   <p><strong>{hf.developer || hf.author}</strong> merged a hotfix into <span className="highlight-tag">{hf.branch_id}</span></p>
-                  {hf.ticket_id && <span className="highlight-tag" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', marginRight: '8px' }}>{hf.ticket_id}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                    {hf.ticket_id && <span className="highlight-tag" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd' }}>{hf.ticket_id}</span>}
+                    {hf.ticket_summary && <span className="ticket-summary-text">{hf.ticket_summary}</span>}
+                  </div>
                   <span className="feed-time">{new Date(hf.merged_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
               </div>
