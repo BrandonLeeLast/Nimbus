@@ -20,7 +20,7 @@ const FOOTER_Y = PAGE_H - 12;
 const BODY_TOP = 20;
 const BODY_BOT = FOOTER_Y - 6;
 
-export function exportPdf(doc: ReleaseDoc) {
+export function exportPdf(doc: ReleaseDoc, preview = false) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   let y = BODY_TOP;
   let page = 1;
@@ -69,10 +69,10 @@ export function exportPdf(doc: ReleaseDoc) {
     y += 10;
   };
 
-  // Section heading (like H2) — with gold rule below
+  // Section heading (like H2) — with prominent visual separation
   const h2 = (text: string) => {
-    needY(18);
-    y += 4;
+    needY(24);
+    y += 12;  // Extra space before major sections
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(...BLACK);
@@ -83,7 +83,7 @@ export function exportPdf(doc: ReleaseDoc) {
     pdf.setLineWidth(0.5);
     pdf.line(M, y, PAGE_W - M, y);
     pdf.setLineWidth(0.2);
-    y += 5;
+    y += 6;
   };
 
   // Sub-heading (like H3)
@@ -168,18 +168,32 @@ export function exportPdf(doc: ReleaseDoc) {
     pdf.setFillColor(...BLACK);
     // Bullet dot
     pdf.circle(M + 5, y - 1.3, 0.8, 'F');
-    // Checkbox — filled square for checked, empty for unchecked
+    // Checkbox with checkmark or X
     const bx = M + 8;
     const by = y - 3.2;
     const bs = 3.5; // box size
+    pdf.setDrawColor(...TABLE_BORDER);
+    pdf.rect(bx, by, bs, bs, 'S');
+    pdf.setDrawColor(...BLACK);
+
     if (checked) {
-      pdf.setFillColor(80, 80, 200);
-      pdf.rect(bx, by, bs, bs, 'F');
+      // Draw checkmark
+      pdf.setDrawColor(34, 139, 34); // green
+      pdf.setLineWidth(0.6);
+      pdf.line(bx + 0.7, by + bs / 2, bx + bs / 3, by + bs - 0.8);
+      pdf.line(bx + bs / 3, by + bs - 0.8, bx + bs - 0.7, by + 0.8);
+      pdf.setLineWidth(0.2);
+      pdf.setDrawColor(...BLACK);
     } else {
-      pdf.setDrawColor(...TABLE_BORDER);
-      pdf.rect(bx, by, bs, bs, 'S');
+      // Draw X for unchecked
+      pdf.setDrawColor(180, 180, 180); // light gray
+      pdf.setLineWidth(0.4);
+      pdf.line(bx + 0.8, by + 0.8, bx + bs - 0.8, by + bs - 0.8);
+      pdf.line(bx + bs - 0.8, by + 0.8, bx + 0.8, by + bs - 0.8);
+      pdf.setLineWidth(0.2);
       pdf.setDrawColor(...BLACK);
     }
+
     pdf.setTextColor(...BLACK);
     const lines = pdf.splitTextToSize(text, CW - 16);
     pdf.text(lines[0], M + 14, y);
@@ -208,14 +222,16 @@ export function exportPdf(doc: ReleaseDoc) {
     }
   };
 
-  // Black horizontal rule (section divider)
+  // Section divider - prominent visual break
   const rule = () => {
-    y += 2;
-    pdf.setDrawColor(...BLACK);
-    pdf.setLineWidth(0.5);
+    y += 8;
+    // Double line for clear section separation
+    pdf.setDrawColor(...TABLE_BORDER);
+    pdf.setLineWidth(0.3);
     pdf.line(M, y, PAGE_W - M, y);
+    pdf.line(M, y + 1.5, PAGE_W - M, y + 1.5);
     pdf.setLineWidth(0.2);
-    y += 4;
+    y += 6;
   };
 
   const gap = (mm = 3) => { y += mm; };
@@ -263,16 +279,22 @@ export function exportPdf(doc: ReleaseDoc) {
       pdf.setFont('helvetica', 'normal');
       cx = M + CELL_PAD;
       for (let c = 0; c < row.length; c++) {
+        const cellValue = row[c] || '';
         if (c === 0) {
           pdf.setTextColor(...GOLD);
           pdf.setFont('courier', 'normal');
           pdf.setFontSize(8);
+        } else if (cellValue === 'Yes') {
+          // Red for "Yes" (breaking changes)
+          pdf.setTextColor(200, 50, 50);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
         } else {
           pdf.setTextColor(...DARK);
           pdf.setFont('helvetica', 'normal');
           pdf.setFontSize(9);
         }
-        const wrapped = pdf.splitTextToSize(row[c] || '', colW[c] - CELL_PAD * 2);
+        const wrapped = pdf.splitTextToSize(cellValue, colW[c] - CELL_PAD * 2);
         for (let l = 0; l < wrapped.length; l++) {
           pdf.text(wrapped[l], cx, y + ROW_PAD + l * LINE_H);
         }
@@ -286,7 +308,7 @@ export function exportPdf(doc: ReleaseDoc) {
     }
 
     pdf.setLineWidth(0.2);
-    y += 4;
+    y += 8;  // Extra space after tables
   };
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -342,9 +364,10 @@ export function exportPdf(doc: ReleaseDoc) {
     gap(2);
     boldLabel('Risk Notes:');
     gap(1);
+    const RED: [number, number, number] = [200, 50, 50];
     for (const note of allRiskNotes) {
       needY(6);
-      pdf.setFillColor(...BLACK);
+      pdf.setFillColor(...RED);
       pdf.circle(M + 5, y - 1.3, 0.8, 'F');
 
       // Check if note has "Label: description" format
@@ -352,15 +375,15 @@ export function exportPdf(doc: ReleaseDoc) {
       if (colonIdx > 0 && colonIdx < 60) {
         const label = note.slice(0, colonIdx);
         const desc = note.slice(colonIdx + 1).trim();
-        // Bold label part
+        // Bold label part in red
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(...BLACK);
+        pdf.setTextColor(...RED);
         pdf.text(`${label}:`, M + 8, y);
         const labelW = pdf.getTextWidth(`${label}: `);
-        // Normal description part
+        // Description part in red
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(...DARK);
+        pdf.setTextColor(...RED);
         const descLines = pdf.splitTextToSize(desc, CW - 8 - labelW);
         if (descLines.length > 0) {
           pdf.text(descLines[0], M + 8 + labelW, y);
@@ -372,10 +395,10 @@ export function exportPdf(doc: ReleaseDoc) {
           y += 5;
         }
       } else {
-        // Plain bullet
+        // Plain bullet in red
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(...BLACK);
+        pdf.setTextColor(...RED);
         const lines = pdf.splitTextToSize(note, CW - 10);
         pdf.text(lines[0], M + 8, y);
         y += 5;
@@ -471,7 +494,7 @@ export function exportPdf(doc: ReleaseDoc) {
     table(
       ['Library', 'Current Production Version', 'Deployment Version', 'Description', 'Breaking Changes?'],
       [34, 32, 28, 42, 34],
-      doc.libraryVersions.map(l => [l.library, l.currentVersion, l.deployVersion, l.description, l.breakingChanges ? '✓ Yes' : '✗ No'])
+      doc.libraryVersions.map(l => [l.library, l.currentVersion, l.deployVersion, l.description, l.breakingChanges ? 'Yes' : 'No'])
     );
   }
 
@@ -480,7 +503,7 @@ export function exportPdf(doc: ReleaseDoc) {
     table(
       ['Dependency', 'Affected Projects', 'Description', 'Breaking Changes?'],
       [34, 34, 62, 40],
-      doc.externalDependencies.map(e => [e.dependency, e.affectedProjects, e.description, e.breakingChanges ? '✓ Yes' : '✗ No'])
+      doc.externalDependencies.map(e => [e.dependency, e.affectedProjects, e.description, e.breakingChanges ? 'Yes' : 'No'])
     );
   }
 
@@ -713,7 +736,12 @@ export function exportPdf(doc: ReleaseDoc) {
     pdf.text(`${p} / ${totalPages}`, PAGE_W / 2, FOOTER_Y, { align: 'center' });
   }
 
-  pdf.save(`${doc.release.name}.pdf`);
+  if (preview) {
+    const blobUrl = pdf.output('bloburl');
+    window.open(blobUrl, '_blank');
+  } else {
+    pdf.save(`${doc.release.name}.pdf`);
+  }
 }
 
 function formatDateShort(d: string): string {

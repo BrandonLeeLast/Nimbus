@@ -241,7 +241,7 @@ export function emptyDoc(releaseName: string, releaseDate: string, branchName: s
 export interface PipelineRepo {
   repo: string;
   path: string;
-  commits: { id: string; title: string; author: string; date: string; url: string; tickets: string[] }[];
+  commits: { id: string; title: string; author: string; date: string; url: string; tickets: string[]; onMainVia?: string | null }[];
   error?: string;
 }
 

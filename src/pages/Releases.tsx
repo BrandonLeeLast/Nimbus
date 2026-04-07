@@ -146,8 +146,6 @@ export default function Releases() {
   };
 
   const selected = releases.find(r => r.id === selectedId);
-  const inRelease = new Set(releaseRepos.map(r => r.repo.id));
-  const availableToAdd = repos.filter(r => r.enabled && !inRelease.has(r.id));
 
   return (
     <div className="flex gap-0 h-full bg-[#1a1a1a]">
@@ -302,13 +300,27 @@ export default function Releases() {
                     <button onClick={() => removeRepo(rr.id)} className="text-[#666] hover:text-red-500 transition-colors ml-1 px-1 text-xs">✕</button>
                   </div>
                 ))}
-                {availableToAdd.length > 0 && (
-                  <select onChange={e => { if (e.target.value) { addRepo(e.target.value); e.target.value = ''; } }}
-                    className="bg-[#0d0d0d] border border-dashed border-[#2a2a2a] px-2.5 py-1 text-xs text-[#777] focus:outline-none focus:border-[#ff460b] cursor-pointer rounded">
-                    <option value="">+ Add repo</option>
-                    {availableToAdd.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                )}
+                <RepoSearchDropdown
+                  excludeIds={new Set(releaseRepos.map(r => r.repo.project_id || ''))}
+                  onAdd={async (project) => {
+                    // Ensure repo exists in registry, then add to release
+                    let repoId = repos.find(r => r.gitlab_path === project.path_with_namespace)?.id;
+                    if (!repoId) {
+                      const res = await api.post<{ id: string }>('/repos', {
+                        name: project.name,
+                        gitlab_path: project.path_with_namespace,
+                        project_id: String(project.id),
+                      }).catch(async () => {
+                        const all = await api.get<{ id: string; gitlab_path: string }[]>('/repos');
+                        return all.find(r => r.gitlab_path === project.path_with_namespace) ?? { id: '' };
+                      });
+                      repoId = res.id;
+                    }
+                    if (repoId) {
+                      await addRepo(repoId);
+                    }
+                  }}
+                />
               </div>
             </div>
 
@@ -349,9 +361,129 @@ export default function Releases() {
   );
 }
 
-// ─── New Release Modal ─────────────────────────────────────────────────────────
+// ─── Repo Search Dropdown ───────────────────────────────────────────────────────
 
 interface GitLabProject { id: number; name: string; path_with_namespace: string; namespace?: { name: string } }
+
+interface RepoSearchDropdownProps {
+  excludeIds: Set<string>;
+  onAdd: (project: GitLabProject) => Promise<void>;
+}
+
+function RepoSearchDropdown({ excludeIds, onAdd }: RepoSearchDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<GitLabProject[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Position dropdown when opening
+  const handleOpen = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(v => !v);
+  };
+
+  const handleSearch = (q: string) => {
+    setSearch(q);
+    if (searchRef.current) clearTimeout(searchRef.current);
+    if (q.length < 2) { setResults([]); return; }
+    searchRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await api.get<GitLabProject[]>(`/repos/gitlab-search?q=${encodeURIComponent(q)}`);
+        setResults(res);
+      } catch { setResults([]); }
+      finally { setSearching(false); }
+    }, 300);
+  };
+
+  const handleAdd = async (project: GitLabProject) => {
+    setAdding(true);
+    try {
+      await onAdd(project);
+      setSearch('');
+      setResults([]);
+      setOpen(false);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // Filter out repos already in release
+  const filtered = results.filter(p => !excludeIds.has(String(p.id)));
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        ref={buttonRef}
+        onClick={handleOpen}
+        disabled={adding}
+        className="bg-[#0d0d0d] border border-dashed border-[#2a2a2a] hover:border-[#ff460b] px-2.5 py-1 text-xs text-[#777] hover:text-white focus:outline-none cursor-pointer rounded transition-colors disabled:opacity-50">
+        {adding ? 'Adding...' : '+ Add repo'}
+      </button>
+
+      {open && (
+        <div
+          className="fixed w-80 bg-[#111] border border-[#2a2a2a] shadow-2xl z-50 rounded-lg overflow-hidden"
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}>
+          <div className="p-2 border-b border-[#2a2a2a]">
+            <input
+              autoFocus
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              placeholder="Search GitLab repos..."
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] rounded"
+            />
+          </div>
+
+          <div className="max-h-64 overflow-y-auto">
+            {searching && (
+              <p className="text-xs text-[#666] px-3 py-3 animate-pulse">Searching GitLab...</p>
+            )}
+
+            {!searching && search.length < 2 && (
+              <p className="text-xs text-[#555] px-3 py-3">Type at least 2 characters to search</p>
+            )}
+
+            {!searching && search.length >= 2 && filtered.length === 0 && (
+              <p className="text-xs text-[#555] px-3 py-3">No repos found</p>
+            )}
+
+            {!searching && filtered.map(p => (
+              <button
+                key={p.id}
+                onClick={() => handleAdd(p)}
+                className="w-full flex flex-col px-3 py-2.5 text-left hover:bg-[#1a1a1a] transition-colors border-b border-[#2a2a2a] last:border-0">
+                <span className="text-sm text-white font-medium">{p.name}</span>
+                <span className="text-xs text-[#666] font-mono truncate">{p.path_with_namespace}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── New Release Modal ─────────────────────────────────────────────────────────
 
 interface NewReleaseModalProps {
   onClose: () => void;

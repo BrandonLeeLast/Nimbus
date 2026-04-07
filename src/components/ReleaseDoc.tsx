@@ -87,6 +87,10 @@ export default function ReleaseDocEditor({ releaseId, doc: initial, onSaved }: P
             {saveMsg && <span className={`text-xs ${saveMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{saveMsg}</span>}
           </div>
           <div className="flex gap-2">
+            <button onClick={() => exportPdf(doc, true)}
+              className="px-3 py-1.5 border border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-white text-xs font-medium uppercase tracking-wider transition-colors">
+              Preview
+            </button>
             <button onClick={() => exportPdf(doc)}
               className="px-3 py-1.5 border border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-white text-xs font-medium uppercase tracking-wider transition-colors">
               Export PDF
