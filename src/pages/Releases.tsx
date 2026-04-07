@@ -32,6 +32,10 @@ export default function Releases() {
   const [missingBranches, setMissingBranches] = useState<{ branch: string; repos: BranchStatus[] } | null>(null);
   const [creatingBranches, setCreatingBranches] = useState(false);
 
+  // Deploy MRs
+  const [creatingMRs, setCreatingMRs] = useState(false);
+  const [mrResults, setMrResults] = useState<{ repo: string; result: string; url?: string | null }[]>([]);
+
   const loadReleases = useCallback(async () => {
     const all = await api.get<Release[]>('/releases');
     setReleases(all.slice().reverse());
@@ -133,6 +137,22 @@ export default function Releases() {
     await loadReleases();
   };
 
+  const createDeployMRs = async () => {
+    if (!selectedId) return;
+    setCreatingMRs(true);
+    setMrResults([]);
+    try {
+      const res = await api.post<{ branch: string; results: { repo: string; result: string; url?: string | null }[] }>(
+        `/releases/${selectedId}/create-mrs`, {}
+      );
+      setMrResults(res.results);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCreatingMRs(false);
+    }
+  };
+
   const addRepo = async (repoId: string) => {
     await api.post(`/releases/${selectedId}/repos`, { repo_id: repoId });
     const rr = await api.get<ReleaseRepo[]>(`/releases/${selectedId}/repos`);
@@ -202,6 +222,31 @@ export default function Releases() {
           )}
 
           {error && <div className="border border-red-900 bg-red-950/30 px-4 py-2.5 text-red-400 text-xs font-mono rounded-lg">{error}</div>}
+
+          {mrResults.length > 0 && (
+            <div className="border border-[#2a2a2a] bg-[#111111] p-4 space-y-2 rounded-lg shadow-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-white">Deploy Merge Requests</p>
+                <button onClick={() => setMrResults([])} className="text-[10px] text-[#666] hover:text-white uppercase tracking-wider">Dismiss</button>
+              </div>
+              {mrResults.map(r => (
+                <div key={r.repo} className="flex items-center gap-3">
+                  <span className={`text-[10px] px-2 py-0.5 font-mono uppercase tracking-wider rounded ${
+                    r.result === 'created' ? 'bg-green-950/40 text-green-500 border border-green-900' :
+                    r.result === 'already exists' ? 'bg-yellow-950/40 text-yellow-500 border border-yellow-900' :
+                    'bg-red-950/40 text-red-500 border border-red-900'
+                  }`}>{r.result}</span>
+                  <span className="text-xs text-[#888] font-mono">{r.repo}</span>
+                  {r.url && (
+                    <a href={r.url} target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] text-blue-400 hover:text-blue-300 underline ml-auto">
+                      View MR
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {missingBranches && (
             <div className="border border-yellow-900/60 bg-[#111111] p-5 space-y-3 rounded-lg shadow-lg">
@@ -281,6 +326,12 @@ export default function Releases() {
                         </div>
                       </div>
                     </div>
+                  )}
+                  {selected.status === 'active' && (
+                    <button onClick={createDeployMRs} disabled={creatingMRs}
+                      className="px-4 py-2 bg-[#1a1a3a] hover:bg-[#1e1e45] disabled:opacity-50 text-blue-400 text-xs font-semibold uppercase tracking-wider transition-colors border border-blue-900 rounded">
+                      {creatingMRs ? 'Creating MRs...' : 'Create Deploy MRs'}
+                    </button>
                   )}
                   {selected.status === 'active' && (
                     <button onClick={completeRelease}
