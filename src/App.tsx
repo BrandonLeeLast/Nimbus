@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Releases from './pages/Releases';
+import Recon from './pages/Recon';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -13,6 +14,8 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/releases" element={<Releases />} />
           <Route path="/releases/:id" element={<Releases />} />
+          <Route path="/recon" element={<Recon />} />
+          <Route path="/recon/:id" element={<Recon />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

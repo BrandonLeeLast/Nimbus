@@ -45,6 +45,7 @@ export default function Settings() {
   const [scanExcludeResults, setScanExcludeResults] = useState<GitLabProject[]>([]);
   const [scanExcludeSearching, setScanExcludeSearching] = useState(false);
   const scanExcludeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [youtrackProject, setYoutrackProject] = useState('INDEV');
 
   // Delete release modal state
   const [releases, setReleases] = useState<Release[]>([]);
@@ -60,6 +61,7 @@ export default function Settings() {
       const ex = s['EXCLUDED_TICKET_PATTERNS'];
       setExcludedTickets(ex ? ex.split(',').map(t => t.trim()).filter(Boolean) : []);
       if (s['SCAN_WINDOW_DAYS']) setScanWindowDays(parseInt(s['SCAN_WINDOW_DAYS'], 10) || 90);
+      if (s['YOUTRACK_PROJECT']) setYoutrackProject(s['YOUTRACK_PROJECT']);
       const se = s['SCAN_EXCLUDED_REPOS'];
       setScanExcluded(se ? se.split(',').map(p => p.trim()).filter(Boolean) : []);
     }).catch(() => null);
@@ -252,6 +254,28 @@ export default function Settings() {
                 flash(`Scan window set to ${scanWindowDays} days`);
               }}
               className="w-20 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-white text-sm text-center font-mono focus:outline-none focus:border-[#ff460b] transition-colors"
+            />
+          </div>
+        </Panel>
+
+        {/* YouTrack project */}
+        <Panel>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-white font-medium">YouTrack Project</p>
+              <p className="text-xs text-[#555] mt-1">
+                Project ID(s) used when querying YouTrack for stage tickets in Recon. Comma-separated for multiple (e.g. <code className="text-[#ff460b] font-mono">INDEV,OPS</code>).
+              </p>
+            </div>
+            <input
+              type="text"
+              value={youtrackProject}
+              onChange={e => setYoutrackProject(e.target.value)}
+              onBlur={async () => {
+                await api.put('/settings/YOUTRACK_PROJECT', { value: youtrackProject });
+                flash(`YouTrack project set to ${youtrackProject}`);
+              }}
+              className="w-40 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-white text-sm text-center font-mono focus:outline-none focus:border-[#ff460b] transition-colors"
             />
           </div>
         </Panel>
