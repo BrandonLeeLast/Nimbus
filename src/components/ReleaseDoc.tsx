@@ -77,7 +77,7 @@ export default function ReleaseDocEditor({ releaseId, doc: initial, onSaved }: P
         ))}
       </nav>
 
-      {/* Document area */}1
+      {/* Document area */}
       <div className="flex-1 min-w-0 bg-[#0d0d0d]">
         {/* Toolbar */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-[#1f1f1f] bg-[#111] sticky top-0 z-10">
@@ -741,6 +741,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Input({ value, onChange, placeholder, type, disabled, mono }: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean; mono?: boolean }) {
   return (
     <input type={type ?? 'text'} value={value} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} disabled={disabled}
+      style={type === 'date' ? { colorScheme: 'dark' } : undefined}
       className={`w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#3a3a3a] focus:outline-none focus:border-[#ff460b] disabled:opacity-40 transition-colors ${mono ? 'font-mono' : ''}`} />
   );
 }
