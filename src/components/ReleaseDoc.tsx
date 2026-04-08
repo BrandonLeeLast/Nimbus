@@ -244,7 +244,7 @@ function RepoChangeCard({ repo, onChange, youtrackBase }: { repo: DocRepo; onCha
     <div className="border border-[#1f1f1f] overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-[#1f1f1f] bg-[#161616] cursor-pointer" onClick={() => setExpanded(v => !v)}>
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-[#111] text-sm">{repo.name}</span>
+          <span className="font-semibold text-[#ff460b] text-sm">{repo.name}</span>
           <span className="text-xs text-[#999]">{repo.commitCount} commits · {repo.tickets.filter(t => !t.excluded).length} tickets</span>
           <span className={`text-[10px] px-2 py-0.5 uppercase tracking-wider font-medium ${repo.deployStatus === 'no-deploy' ? 'bg-[#1a1a1a] text-[#555]' : 'bg-green-950/30 text-green-500 border border-green-900/50'}`}>
             {repo.deployStatus === 'no-deploy' ? 'no-deploy' : 'deploy'}
@@ -390,7 +390,19 @@ function ByDevMini({ tickets }: { tickets: DocRepo['tickets'] }) {
 }
 
 function LibrariesSection({ doc, update }: { doc: ReleaseDoc; update: (p: Partial<ReleaseDoc>) => void }) {
-  const add = () => update({ libraryVersions: [...doc.libraryVersions, { library: '', currentVersion: '', deployVersion: '', description: '', breakingChanges: false }] });
+  const PRESET_LIBRARIES = [
+    'WSB.Core.Contracts',
+    'WSB.Core.Library',
+    'WSB.Shared.Library',
+    'WSB.Shared.Contracts',
+    'OTTIntegration.Core',
+    'SCodeIntegration.Core',
+    'EWallet-Integration',
+    'ShopriteIntegration.Core',
+    'TymeBank-Integration',
+  ];
+
+  const add = (libraryName = '') => update({ libraryVersions: [...doc.libraryVersions, { library: libraryName, currentVersion: '', deployVersion: '', description: '', breakingChanges: false }] });
   const upd = (i: number, p: Partial<LibraryVersion>) => update({ libraryVersions: doc.libraryVersions.map((r, j) => j === i ? { ...r, ...p } : r) });
   const del = (i: number) => update({ libraryVersions: doc.libraryVersions.filter((_, j) => j !== i) });
 
@@ -408,7 +420,9 @@ function LibrariesSection({ doc, update }: { doc: ReleaseDoc; update: (p: Partia
           <tbody className="divide-y divide-[#f0f0f0]">
             {doc.libraryVersions.map((lv, i) => (
               <tr key={i}>
-                <td className="py-2 pr-3"><TdInput value={lv.library} onChange={v => upd(i, { library: v })} placeholder="WSB.Core.Contracts" mono /></td>
+                <td className="py-2 pr-3 relative">
+                  <LibraryAutocomplete value={lv.library} onChange={v => upd(i, { library: v })} presets={PRESET_LIBRARIES} />
+                </td>
                 <td className="py-2 pr-3"><TdInput value={lv.currentVersion} onChange={v => upd(i, { currentVersion: v })} placeholder="v1.87.5" /></td>
                 <td className="py-2 pr-3"><TdInput value={lv.deployVersion} onChange={v => upd(i, { deployVersion: v })} placeholder="v1.87.6" /></td>
                 <td className="py-2 pr-3"><TdInput value={lv.description} onChange={v => upd(i, { description: v })} placeholder="Description" /></td>
@@ -418,7 +432,7 @@ function LibrariesSection({ doc, update }: { doc: ReleaseDoc; update: (p: Partia
             ))}
           </tbody>
         </table>
-        <button onClick={add} className="mt-3 text-xs text-[#ff460b] hover:text-[#e03d08] uppercase tracking-wider font-medium transition-colors">+ Add library</button>
+        <button onClick={() => add('')} className="mt-3 text-xs text-[#ff460b] hover:text-[#e03d08] uppercase tracking-wider font-medium transition-colors">+ Add library</button>
       </Card>
 
       <Card title="External Dependencies">
@@ -728,6 +742,37 @@ function Input({ value, onChange, placeholder, type, disabled, mono }: { value: 
   return (
     <input type={type ?? 'text'} value={value} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} disabled={disabled}
       className={`w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#3a3a3a] focus:outline-none focus:border-[#ff460b] disabled:opacity-40 transition-colors ${mono ? 'font-mono' : ''}`} />
+  );
+}
+
+function LibraryAutocomplete({ value, onChange, presets }: { value: string; onChange: (v: string) => void; presets: string[] }) {
+  const [focused, setFocused] = useState(false);
+  const query = value.toLowerCase();
+  const suggestions = presets.filter(p => p.toLowerCase().includes(query) && p !== value);
+
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder="Type or select library..."
+        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1.5 text-xs text-white font-mono placeholder-[#3a3a3a] focus:outline-none focus:border-[#ff460b] transition-colors"
+      />
+      {focused && suggestions.length > 0 && (
+        <div className="absolute left-0 top-full mt-1 w-full bg-[#111] border border-[#2a2a2a] shadow-xl z-20 rounded max-h-40 overflow-y-auto">
+          {suggestions.map(s => (
+            <button
+              key={s}
+              onMouseDown={() => onChange(s)}
+              className="w-full text-left px-3 py-1.5 text-xs text-[#aaa] font-mono hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

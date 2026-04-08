@@ -227,7 +227,22 @@ export default function Releases() {
             <div className="border border-[#2a2a2a] bg-[#111111] p-4 space-y-2 rounded-lg shadow-lg">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-white">Deploy Merge Requests</p>
-                <button onClick={() => setMrResults([])} className="text-[10px] text-[#666] hover:text-white uppercase tracking-wider">Dismiss</button>
+                <div className="flex items-center gap-3">
+                  {mrResults.filter(r => r.url).length > 1 && (
+                    <button
+                      onClick={() => {
+                        const text = mrResults
+                          .filter(r => r.url)
+                          .map(r => `${r.repo}\n${r.url}`)
+                          .join('\n\n');
+                        navigator.clipboard.writeText(text);
+                      }}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 uppercase tracking-wider transition-colors">
+                      Copy all links
+                    </button>
+                  )}
+                  <button onClick={() => setMrResults([])} className="text-[10px] text-[#666] hover:text-white uppercase tracking-wider">Dismiss</button>
+                </div>
               </div>
               {mrResults.map(r => (
                 <div key={r.repo} className="flex items-center gap-3">
