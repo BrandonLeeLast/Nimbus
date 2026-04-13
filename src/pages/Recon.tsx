@@ -160,33 +160,30 @@ export default function Recon() {
           </select>
         </div>
 
-        {sprints.length > 0 && (
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[#555] uppercase tracking-widest shrink-0">Sprint</span>
-            <select
-              value={selectedSprint}
-              onChange={e => {
-                const val = e.target.value;
-                setSelectedSprint(val);
-                api.put('/settings/DEFAULT_SPRINT', { value: val }).catch(() => null);
-                if (selectedId) runRecon(selectedId, val);
-              }}
-              className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
-            >
-              <option value="">All sprints</option>
-              {sprints.filter(s => {
-                if (s.archived) return false;
-                const thisYear = new Date().getFullYear();
-                if (s.finish) return new Date(s.finish).getFullYear() === thisYear;
-                if (s.start) return new Date(s.start).getFullYear() === thisYear;
-                return true;
-              }).map(s => (
-                <option key={s.id} value={s.name}>{s.name}</option>
-              ))}
-
-            </select>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-[#555] uppercase tracking-widest shrink-0">Sprint</span>
+          <select
+            value={selectedSprint}
+            onChange={e => {
+              const val = e.target.value;
+              setSelectedSprint(val);
+              api.put('/settings/DEFAULT_SPRINT', { value: val }).catch(() => null);
+              if (selectedId) runRecon(selectedId, val);
+            }}
+            className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
+          >
+            <option value="">None (all sprints)</option>
+            {sprints.filter(s => {
+              if (s.archived) return false;
+              const thisYear = new Date().getFullYear();
+              if (s.finish) return new Date(s.finish).getFullYear() === thisYear;
+              if (s.start) return new Date(s.start).getFullYear() === thisYear;
+              return true;
+            }).map(s => (
+              <option key={s.id} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (

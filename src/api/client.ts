@@ -53,6 +53,7 @@ export interface DocTicket {
   risk: string;
   notes: string;
   excluded: boolean;
+  suspicious?: string;  // reason if ticket looks wrong (stale, on hold, not found)
 }
 
 export interface DocSection {

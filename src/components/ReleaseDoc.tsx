@@ -283,7 +283,14 @@ function RepoChangeCard({ repo, onChange, youtrackBase }: { repo: DocRepo; onCha
             <p className="text-[10px] uppercase tracking-widest text-[#999] mb-2">Tickets</p>
             <div className="space-y-1.5">
               {repo.tickets.map((t, ti) => (
-                <div key={t.id} className={`flex items-start gap-3 border px-3 py-2.5 transition-colors ${t.excluded ? 'border-red-900/50 bg-red-950/20' : 'border-[#1f1f1f] bg-[#141414]'}`}>
+                <div key={t.id} className={`flex flex-col border transition-colors ${t.suspicious ? 'border-amber-700/60 bg-amber-950/10' : t.excluded ? 'border-red-900/50 bg-red-950/20' : 'border-[#1f1f1f] bg-[#141414]'}`}>
+                  {t.suspicious && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/30 border-b border-amber-700/40">
+                      <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider">Suspicious</span>
+                      <span className="text-amber-300/80 text-[10px]">{t.suspicious}</span>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3 px-3 py-2.5">
                   {youtrackBase
                     ? <a href={`${youtrackBase}/issue/${t.id}`} target="_blank" rel="noreferrer"
                         className="text-[#ff460b] hover:underline text-xs mt-0.5 w-28 shrink-0 font-mono transition-colors">
@@ -329,6 +336,7 @@ function RepoChangeCard({ repo, onChange, youtrackBase }: { repo: DocRepo; onCha
                       {t.excluded ? 'Hidden from PDF' : 'Hide from PDF'}
                     </button>
                   </div>
+                </div>
                 </div>
               ))}
             </div>
