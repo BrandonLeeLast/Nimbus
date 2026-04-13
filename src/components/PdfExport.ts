@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import type { ReleaseDoc } from '../api/client';
+import type { ReleaseDoc, ExecDoc } from '../api/client';
 
 // ── Colors (matching reference doc style) ────────────────────────────────────
 const BLACK: [number, number, number] = [0, 0, 0];
@@ -225,11 +225,10 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   // Section divider - prominent visual break
   const rule = () => {
     y += 8;
-    // Double line for clear section separation
-    pdf.setDrawColor(...TABLE_BORDER);
+    // Black rule for clear section separation
+    pdf.setDrawColor(...BLACK);
     pdf.setLineWidth(0.3);
     pdf.line(M, y, PAGE_W - M, y);
-    pdf.line(M, y + 1.5, PAGE_W - M, y + 1.5);
     pdf.setLineWidth(0.2);
     y += 6;
   };
@@ -239,7 +238,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   // ── Table (clean style matching reference) ─────────────────────────────────
   const table = (headers: string[], colW: number[], rows: string[][]) => {
     const totalW = colW.reduce((a, b) => a + b, 0);
-    const ROW_PAD = 4.5;
+    const ROW_PAD = 3.5;
     const LINE_H = 4.5;
     const CELL_PAD = 4; // horizontal padding inside cells
 
@@ -272,7 +271,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         const wrapped = pdf.splitTextToSize(row[c] || '', colW[c] - CELL_PAD * 2);
         maxLines = Math.max(maxLines, wrapped.length);
       }
-      const rh = maxLines * LINE_H + ROW_PAD * 2;
+      const rh = maxLines * LINE_H + ROW_PAD * 2 + 2;
       needY(rh + 1);
 
       pdf.setFontSize(9);
@@ -296,7 +295,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         }
         const wrapped = pdf.splitTextToSize(cellValue, colW[c] - CELL_PAD * 2);
         for (let l = 0; l < wrapped.length; l++) {
-          pdf.text(wrapped[l], cx, y + ROW_PAD + l * LINE_H);
+          pdf.text(wrapped[l], cx, y + ROW_PAD + 1 + l * LINE_H);
         }
         cx += colW[c];
       }
@@ -530,7 +529,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
 
   if (doc.preDeployChecklist?.length) {
     h3('Pre-Deployment Checklist');
-    for (const item of doc.preDeployChecklist) bullet(item.item);
+    for (const item of doc.preDeployChecklist) checkbox(item.checked, item.item);
     gap(2);
   }
 
@@ -577,7 +576,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
 
   if (doc.stakeholders?.length) {
     h3('Stakeholder Notifications');
-    for (const item of doc.stakeholders) bullet(item.item);
+    for (const item of doc.stakeholders) checkbox(item.checked, item.item);
     gap(2);
   }
 
@@ -595,7 +594,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
 
   if (doc.postDeployChecklist?.length) {
     h3('Verification Steps');
-    for (const item of doc.postDeployChecklist) bullet(item.item);
+    for (const item of doc.postDeployChecklist) checkbox(item.checked, item.item);
   }
 
   rule();
@@ -749,4 +748,129 @@ function formatDateShort(d: string): string {
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
   return dt.toISOString().slice(0, 10);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Executive Overview PDF — business-level summary, deliverables, impact, risk
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function exportExecOverviewPdf(doc: ExecDoc, preview = false) {
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const PW = 210, PH = 297, LM = 20, CW = PW - LM * 2;
+  const FY = PH - 12;
+  let y = 20, page = 1;
+
+  const needY = (s: number) => { if (y + s > FY - 6) { drawFooter(); pdf.addPage(); page++; y = 20; drawHeader(); } };
+  const drawHeader = () => { pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text('Executive Overview', LM, 12); pdf.text(formatDateShort(doc.releaseDate), PW - LM, 12, { align: 'right' }); };
+  const drawFooter = () => { pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${page}`, PW / 2, FY, { align: 'center' }); };
+
+  const heading = (t: string) => { needY(20); y += 10; pdf.setFontSize(14); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK); pdf.text(t, LM, y); y += 2; pdf.setDrawColor(...BLACK); pdf.setLineWidth(0.4); pdf.line(LM, y + 1, PW - LM, y + 1); pdf.setLineWidth(0.2); y += 6; };
+  const subh = (t: string) => { needY(10); y += 2; pdf.setFontSize(11); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK); pdf.text(t, LM, y); y += 5; };
+  const para = (t: string) => { if (!t) return; pdf.setFontSize(10); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...DARK); for (const ln of pdf.splitTextToSize(t, CW)) { needY(5); pdf.text(ln, LM, y); y += 5; } };
+  const kvl = (l: string, v: string) => { needY(6); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK); pdf.text(`${l}:`, LM, y); const lw = pdf.getTextWidth(`${l}: `); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...DARK); pdf.text(v || '—', LM + lw, y); y += 5; };
+  const blt = (t: string) => { needY(6); pdf.setFillColor(...BLACK); pdf.circle(LM + 5, y - 1.3, 0.8, 'F'); pdf.setFontSize(10); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...DARK); const ls = pdf.splitTextToSize(t, CW - 10); pdf.text(ls[0], LM + 8, y); y += 5; for (let i = 1; i < ls.length; i++) { needY(5); pdf.text(ls[i], LM + 10, y); y += 5; } };
+  const gap = (mm = 3) => { y += mm; };
+
+  drawHeader();
+  y = 24;
+  pdf.setFontSize(22); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK);
+  pdf.text('Executive Overview', LM, y); y += 10;
+  pdf.setFontSize(10); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...MID);
+  pdf.text(`${doc.releaseName}  |  ${formatDateShort(doc.releaseDate)}  |  Lead: ${doc.releaseLead || '—'}`, LM, y); y += 8;
+
+  heading('Executive Summary');
+  para(doc.executiveSummary);
+
+  heading('Key Deliverables');
+  const delivs = (title: string, items: { name: string; description: string }[]) => {
+    if (!items.length) return;
+    subh(title);
+    for (const item of items) blt(item.description ? `${item.name} — ${item.description}` : item.name);
+    gap(2);
+  };
+  delivs('New Features & Capabilities', doc.features);
+  delivs('Platform Improvements', doc.improvements);
+  delivs('Critical Fixes', doc.fixes);
+
+  heading('Business Impact');
+  if (doc.customerExperience) { subh('Customer Experience'); para(doc.customerExperience); gap(2); }
+  if (doc.operationalEfficiency) { subh('Operational Efficiency'); para(doc.operationalEfficiency); gap(2); }
+  if (doc.revenueGrowth) { subh('Revenue & Growth'); para(doc.revenueGrowth); gap(2); }
+  if (doc.riskMitigation) { subh('Risk Mitigation'); para(doc.riskMitigation); gap(2); }
+
+  heading('Release Scope');
+  if (doc.totalChanges) kvl('Total Changes', doc.totalChanges);
+  if (doc.projectsUpdated) kvl('Projects Updated', doc.projectsUpdated);
+  if (doc.keyIntegrations) kvl('Key Integrations', doc.keyIntegrations);
+
+  heading('Risk Assessment');
+  kvl('Overall Risk', doc.overallRisk); gap(2);
+  if (doc.riskFactors.length) { subh('Key Risk Factors'); for (const f of doc.riskFactors) blt(f); gap(2); }
+  if (doc.mitigationStrategies.length) { subh('Mitigation Strategies'); for (const s of doc.mitigationStrategies) blt(s); }
+
+  drawFooter();
+  const tp = page;
+  for (let p = 1; p <= tp; p++) { pdf.setPage(p); pdf.setFillColor(255, 255, 255); pdf.rect(0, FY - 3, PW, 10, 'F'); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${p} / ${tp}`, PW / 2, FY, { align: 'center' }); }
+
+  if (preview) window.open(pdf.output('bloburl'), '_blank');
+  else pdf.save(`${doc.releaseName}-executive-overview.pdf`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Ticket Summaries PDF — plain-language per-ticket summaries
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function exportExecSummariesPdf(doc: ExecDoc, preview = false) {
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const PW = 210, PH = 297, LM = 20, CW = PW - LM * 2;
+  const FY = PH - 12;
+  let y = 20, page = 1;
+
+  const needY = (s: number) => { if (y + s > FY - 6) { drawFooter(); pdf.addPage(); page++; y = 20; drawHeader(); } };
+  const drawHeader = () => { pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text('Executive Ticket Summaries', LM, 12); pdf.text(formatDateShort(doc.releaseDate), PW - LM, 12, { align: 'right' }); };
+  const drawFooter = () => { pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${page}`, PW / 2, FY, { align: 'center' }); };
+  const gap = (mm = 3) => { y += mm; };
+
+  drawHeader();
+  y = 24;
+  pdf.setFontSize(22); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK);
+  pdf.text('Executive Ticket Summaries', LM, y); y += 10;
+  pdf.setFontSize(10); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...MID);
+  pdf.text(`${doc.releaseName}  |  ${formatDateShort(doc.releaseDate)}  |  Lead: ${doc.releaseLead || '—'}`, LM, y); y += 8;
+
+  // Section heading
+  needY(20); y += 10;
+  pdf.setFontSize(14); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLACK);
+  pdf.text('Ticket Summaries', LM, y); y += 2;
+  pdf.setDrawColor(...BLACK); pdf.setLineWidth(0.4);
+  pdf.line(LM, y + 1, PW - LM, y + 1); pdf.setLineWidth(0.2); y += 6;
+
+  if (!doc.ticketSummaries.length) {
+    pdf.setFontSize(10); pdf.setFont('helvetica', 'italic'); pdf.setTextColor(...MID);
+    pdf.text('No ticket summaries generated yet.', LM, y);
+  } else {
+    gap(1);
+    for (const t of doc.ticketSummaries) {
+      needY(10);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(...BLACK);
+      const idW = pdf.getTextWidth(t.id + '  ');
+      pdf.text(t.id, LM, y);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(...DARK);
+      const lines = pdf.splitTextToSize(t.summary || '—', CW - idW);
+      pdf.text(lines[0], LM + idW, y);
+      y += 5;
+      for (let i = 1; i < lines.length; i++) { needY(5); pdf.text(lines[i], LM + idW, y); y += 5; }
+      gap(1);
+    }
+  }
+
+  drawFooter();
+  const tp = page;
+  for (let p = 1; p <= tp; p++) { pdf.setPage(p); pdf.setFillColor(255, 255, 255); pdf.rect(0, FY - 3, PW, 10, 'F'); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${p} / ${tp}`, PW / 2, FY, { align: 'center' }); }
+
+  if (preview) window.open(pdf.output('bloburl'), '_blank');
+  else pdf.save(`${doc.releaseName}-ticket-summaries.pdf`);
 }

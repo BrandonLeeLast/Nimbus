@@ -35,20 +35,23 @@ interface YTSprint {
   archived: boolean;
 }
 
-// States that are considered "healthy" for a release — code is ready
+// States considered healthy — code is ready for release
 const GOOD_STATES = new Set(['Stage Approved', 'Stage Testing', 'Staging', 'Production Testing', 'Production', 'Closed']);
-// States that are concerning — ticket is going out but not ready
-const WARN_STATES = new Set(['Rework', 'RE-Work', 'In Progress', 'Peer Review', 'Development', 'UAT', 'UAT Testing', 'New', 'On hold, Blocked']);
+
+// Anything not in GOOD_STATES and not Unknown is flagged — avoids missing new state names
+function isFlagged(state: string) {
+  return state !== 'Unknown' && !GOOD_STATES.has(state);
+}
 
 function stateColor(state: string) {
   if (GOOD_STATES.has(state)) return 'text-green-400 border-green-900/50 bg-green-950/20';
-  if (WARN_STATES.has(state)) return 'text-red-400 border-red-900/50 bg-red-950/20';
+  if (isFlagged(state)) return 'text-red-400 border-red-900/50 bg-red-950/20';
   return 'text-[#888] border-[#2a2a2a] bg-[#0f0f0f]';
 }
 
 function stateDot(state: string) {
   if (GOOD_STATES.has(state)) return 'bg-green-500';
-  if (WARN_STATES.has(state)) return 'bg-red-500';
+  if (isFlagged(state)) return 'bg-red-500';
   return 'bg-[#444]';
 }
 
@@ -68,6 +71,7 @@ export default function Recon() {
   useEffect(() => {
     api.get<Record<string, string>>('/settings').then(s => {
       if (s['YOUTRACK_BASE_URL']) setYoutrackUrl(s['YOUTRACK_BASE_URL']);
+      if (s['DEFAULT_SPRINT']) setSelectedSprint(s['DEFAULT_SPRINT']);
     }).catch(() => null);
     api.get<Release[]>('/releases').then(r => {
       const sorted = r.slice().reverse();
@@ -114,9 +118,9 @@ export default function Recon() {
     );
   };
 
-  const flagged = result?.releaseTickets.filter(t => !t.excluded && WARN_STATES.has(t.state)) ?? [];
+  const flagged = result?.releaseTickets.filter(t => !t.excluded && isFlagged(t.state)) ?? [];
   const healthy = result?.releaseTickets.filter(t => !t.excluded && GOOD_STATES.has(t.state)) ?? [];
-  const unknown = result?.releaseTickets.filter(t => !t.excluded && !GOOD_STATES.has(t.state) && !WARN_STATES.has(t.state)) ?? [];
+  const unknown = result?.releaseTickets.filter(t => !t.excluded && t.state === 'Unknown') ?? [];
   const excluded = result?.releaseTickets.filter(t => t.excluded) ?? [];
 
   const allStageStates = [...new Set(result?.stageOnlyTickets.map(t => t.state) ?? [])].sort();
@@ -162,8 +166,10 @@ export default function Recon() {
             <select
               value={selectedSprint}
               onChange={e => {
-                setSelectedSprint(e.target.value);
-                if (selectedId) runRecon(selectedId, e.target.value);
+                const val = e.target.value;
+                setSelectedSprint(val);
+                api.put('/settings/DEFAULT_SPRINT', { value: val }).catch(() => null);
+                if (selectedId) runRecon(selectedId, val);
               }}
               className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
             >

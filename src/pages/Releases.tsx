@@ -3,10 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api, emptyDoc } from '../api/client';
 import type { Release, Repo, ReleaseRepo, ReleaseDoc } from '../api/client';
 import ReleaseDocEditor from '../components/ReleaseDoc';
-import StagingPipeline from '../components/StagingPipeline';
-import HotfixView from '../components/HotfixView';
+import ExecutiveDocEditor from '../components/ExecutiveDoc';
 
-type Tab = 'document' | 'pipeline' | 'hotfixes';
+type Tab = 'document' | 'executive';
 type BranchStatus = { repoId: string; name: string; exists: boolean | null; error: string | null };
 
 export default function Releases() {
@@ -392,14 +391,14 @@ export default function Releases() {
 
             {/* Tabs */}
             <div className="mx-6 mt-4 flex border-b border-[#2a2a2a]">
-              {(['document', 'pipeline', 'hotfixes'] as Tab[]).map(t => (
+              {(['document', 'executive'] as Tab[]).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 -mb-px ${
                     tab === t
                       ? 'border-[#ff460b] text-white'
                       : 'border-transparent text-[#777] hover:text-[#999]'
                   }`}>
-                  {t === 'pipeline' ? 'Staging Pipeline' : t === 'hotfixes' ? 'Hotfixes' : 'Document'}
+                  {t === 'document' ? 'Release Document' : 'Executive Document'}
                 </button>
               ))}
             </div>
@@ -418,8 +417,12 @@ export default function Releases() {
                   </div>
             )}
 
-            {!loading && tab === 'pipeline' && <div className="mx-6 mt-4"><StagingPipeline releaseId={selectedId} /></div>}
-            {!loading && tab === 'hotfixes' && <div className="mx-6 mt-4"><HotfixView releaseId={selectedId} /></div>}
+            {/* Executive Document tab */}
+            {!loading && tab === 'executive' && (
+              <div className="mt-4 mx-6">
+                <ExecutiveDocEditor releaseId={selectedId} />
+              </div>
+            )}
           </>
         )}
       </div>

@@ -251,3 +251,56 @@ export interface HotfixRepo {
   mrs: { iid: number; title: string; author: string; merged_at: string | null; url: string; source_branch: string; tickets: string[] }[];
   error?: string;
 }
+
+// ─── Executive Documents ─────────────────────────────────────────────────────
+
+export interface ExecDeliverable {
+  name: string;
+  description: string;
+}
+
+export interface ExecDoc {
+  // Release info (pre-filled from release doc)
+  releaseName: string;
+  releaseDate: string;
+  releaseLead: string;
+
+  // Executive Summary
+  executiveSummary: string;
+
+  // Key Deliverables
+  features: ExecDeliverable[];
+  improvements: ExecDeliverable[];
+  fixes: ExecDeliverable[];
+
+  // Business Impact
+  customerExperience: string;
+  operationalEfficiency: string;
+  revenueGrowth: string;
+  riskMitigation: string;
+
+  // Release Scope
+  totalChanges: string;
+  projectsUpdated: string;
+  keyIntegrations: string;
+
+  // Risk Assessment
+  overallRisk: string;
+  riskFactors: string[];
+  mitigationStrategies: string[];
+
+  // Ticket Summaries (plain-language per ticket)
+  ticketSummaries: { id: string; summary: string }[];
+}
+
+export function emptyExecDoc(releaseName: string, releaseDate: string, releaseLead: string): ExecDoc {
+  return {
+    releaseName, releaseDate, releaseLead,
+    executiveSummary: '',
+    features: [], improvements: [], fixes: [],
+    customerExperience: '', operationalEfficiency: '', revenueGrowth: '', riskMitigation: '',
+    totalChanges: '', projectsUpdated: '', keyIntegrations: '',
+    overallRisk: 'Low', riskFactors: [], mitigationStrategies: [],
+    ticketSummaries: [],
+  };
+}
