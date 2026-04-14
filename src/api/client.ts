@@ -305,3 +305,7 @@ export function emptyExecDoc(releaseName: string, releaseDate: string, releaseLe
     ticketSummaries: [],
   };
 }
+
+export function remapTicket(releaseId: string, oldId: string, newId: string): Promise<{ success: boolean; ticket: DocTicket }> {
+  return api.post(`/releases/${releaseId}/remap-ticket`, { oldId, newId });
+}

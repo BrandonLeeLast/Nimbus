@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../api/client';
+import { api, remapTicket } from '../api/client';
 import { exportPdf } from './PdfExport';
 import type { ReleaseDoc, DocRepo, DocSection, LibraryVersion, DbMigration, EnvVarUpdate, ExternalDependency } from '../api/client';
 
@@ -107,7 +107,7 @@ export default function ReleaseDocEditor({ releaseId, doc: initial, onSaved }: P
           {activeSection === 'info' && <ReleaseInfoSection doc={doc} update={update} />}
           {activeSection === 'risk' && <RiskSection doc={doc} update={update} />}
           {activeSection === 'description' && <DescriptionSection doc={doc} update={update} />}
-          {activeSection === 'changes' && <ChangesSection doc={doc} updateRepo={updateRepo} update={update} youtrackBase={youtrackBase} />}
+          {activeSection === 'changes' && <ChangesSection doc={doc} updateRepo={updateRepo} update={update} youtrackBase={youtrackBase} releaseId={releaseId} />}
           {activeSection === 'libraries' && <LibrariesSection doc={doc} update={update} />}
           {activeSection === 'migrations' && <MigrationsSection doc={doc} update={update} />}
           {activeSection === 'envvars' && <EnvVarsSection doc={doc} update={update} />}
@@ -208,11 +208,11 @@ function DescriptionSection({ doc, update }: { doc: ReleaseDoc; update: (p: Part
   );
 }
 
-function ChangesSection({ doc, updateRepo, update, youtrackBase }: { doc: ReleaseDoc; updateRepo: (i: number, p: Partial<DocRepo>) => void; update: (p: Partial<ReleaseDoc>) => void; youtrackBase: string }) {
+function ChangesSection({ doc, updateRepo, update, youtrackBase, releaseId }: { doc: ReleaseDoc; updateRepo: (i: number, p: Partial<DocRepo>) => void; update: (p: Partial<ReleaseDoc>) => void; youtrackBase: string; releaseId: string }) {
   return (
     <div className="space-y-5">
       {doc.repos.map((repo, ri) => (
-        <RepoChangeCard key={repo.repoId} repo={repo} onChange={p => updateRepo(ri, p)} youtrackBase={youtrackBase} />
+        <RepoChangeCard key={repo.repoId} repo={repo} onChange={p => updateRepo(ri, p)} youtrackBase={youtrackBase} releaseId={releaseId} />
       ))}
       {!doc.repos.length && <p className="text-[#999] text-sm">No repos yet — generate the document first.</p>}
 
@@ -235,10 +235,35 @@ function ChangesSection({ doc, updateRepo, update, youtrackBase }: { doc: Releas
   );
 }
 
-function RepoChangeCard({ repo, onChange, youtrackBase }: { repo: DocRepo; onChange: (p: Partial<DocRepo>) => void; youtrackBase: string }) {
+function parseSuspicious(s: string): { reason: string; suggestions: string[] } {
+  const marker = ' · Did you mean ';
+  const idx = s.indexOf(marker);
+  if (idx === -1) return { reason: s, suggestions: [] };
+  const reason = s.slice(0, idx);
+  const sugStr = s.slice(idx + marker.length).replace(/\?$/, '');
+  return { reason, suggestions: sugStr.split(',').map(x => x.trim()).filter(Boolean) };
+}
+
+function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: DocRepo; onChange: (p: Partial<DocRepo>) => void; youtrackBase: string; releaseId: string }) {
   const [expanded, setExpanded] = useState(true);
+  const [remapping, setRemapping] = useState<string | null>(null);
   const updateSection = (i: number, patch: Partial<DocSection>) =>
     onChange({ sections: repo.sections.map((s, j) => j === i ? { ...s, ...patch } : s) });
+
+  const handleRemap = async (oldId: string, newId: string, ticketIndex: number) => {
+    setRemapping(newId);
+    try {
+      const res = await remapTicket(releaseId, oldId, newId);
+      if (res.success) {
+        const tickets = repo.tickets.map((x, j) => j === ticketIndex ? res.ticket : x);
+        onChange({ tickets, ticketCount: tickets.filter(x => !x.excluded).length });
+      }
+    } catch (e) {
+      console.error('Remap failed:', e);
+    } finally {
+      setRemapping(null);
+    }
+  };
 
   return (
     <div className="border border-[#1f1f1f] overflow-hidden">
@@ -284,12 +309,27 @@ function RepoChangeCard({ repo, onChange, youtrackBase }: { repo: DocRepo; onCha
             <div className="space-y-1.5">
               {repo.tickets.map((t, ti) => (
                 <div key={t.id} className={`flex flex-col border transition-colors ${t.suspicious ? 'border-amber-700/60 bg-amber-950/10' : t.excluded ? 'border-red-900/50 bg-red-950/20' : 'border-[#1f1f1f] bg-[#141414]'}`}>
-                  {t.suspicious && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/30 border-b border-amber-700/40">
-                      <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider">Suspicious</span>
-                      <span className="text-amber-300/80 text-[10px]">{t.suspicious}</span>
-                    </div>
-                  )}
+                  {t.suspicious && (() => {
+                    const { reason, suggestions } = parseSuspicious(t.suspicious);
+                    return (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/30 border-b border-amber-700/40 flex-wrap">
+                        <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider">Suspicious</span>
+                        <span className="text-amber-300/80 text-[10px]">{reason}</span>
+                        {suggestions.length > 0 && (
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <span className="text-amber-400/60 text-[10px]">Remap to:</span>
+                            {suggestions.map(s => (
+                              <button key={s} disabled={remapping !== null}
+                                onClick={e => { e.stopPropagation(); handleRemap(t.id, s, ti); }}
+                                className="px-2 py-0.5 text-[10px] font-mono bg-amber-900/40 border border-amber-700/50 text-amber-200 hover:bg-amber-800/50 hover:text-white transition-colors disabled:opacity-40">
+                                {remapping === s ? 'Remapping...' : s}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-start gap-3 px-3 py-2.5">
                   {youtrackBase
                     ? <a href={`${youtrackBase}/issue/${t.id}`} target="_blank" rel="noreferrer"

@@ -35,6 +35,10 @@ export default function Releases() {
   const [creatingMRs, setCreatingMRs] = useState(false);
   const [mrResults, setMrResults] = useState<{ repo: string; result: string; url?: string | null }[]>([]);
 
+  // Backmerge MRs
+  const [creatingBackmergeMRs, setCreatingBackmergeMRs] = useState(false);
+  const [backmergeMrResults, setBackmergeMrResults] = useState<{ repo: string; result: string; url?: string | null }[]>([]);
+
   const loadReleases = useCallback(async () => {
     const all = await api.get<Release[]>('/releases');
     setReleases(all.slice().reverse());
@@ -152,6 +156,22 @@ export default function Releases() {
     }
   };
 
+  const createBackmergeMRs = async () => {
+    if (!selectedId) return;
+    setCreatingBackmergeMRs(true);
+    setBackmergeMrResults([]);
+    try {
+      const res = await api.post<{ branch: string; results: { repo: string; result: string; url?: string | null }[] }>(
+        `/releases/${selectedId}/create-backmerge-mrs`, {}
+      );
+      setBackmergeMrResults(res.results);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCreatingBackmergeMRs(false);
+    }
+  };
+
   const addRepo = async (repoId: string) => {
     await api.post(`/releases/${selectedId}/repos`, { repo_id: repoId });
     const rr = await api.get<ReleaseRepo[]>(`/releases/${selectedId}/repos`);
@@ -262,6 +282,46 @@ export default function Releases() {
             </div>
           )}
 
+          {backmergeMrResults.length > 0 && (
+            <div className="border border-green-900/60 bg-[#111111] p-4 space-y-2 rounded-lg shadow-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-white">Backmerge Merge Requests (main → stage)</p>
+                <div className="flex items-center gap-3">
+                  {backmergeMrResults.filter(r => r.url).length > 1 && (
+                    <button
+                      onClick={() => {
+                        const text = backmergeMrResults
+                          .filter(r => r.url)
+                          .map(r => `${r.repo}\n${r.url}`)
+                          .join('\n\n');
+                        navigator.clipboard.writeText(text);
+                      }}
+                      className="text-[10px] text-green-400 hover:text-green-300 uppercase tracking-wider transition-colors">
+                      Copy all links
+                    </button>
+                  )}
+                  <button onClick={() => setBackmergeMrResults([])} className="text-[10px] text-[#666] hover:text-white uppercase tracking-wider">Dismiss</button>
+                </div>
+              </div>
+              {backmergeMrResults.map(r => (
+                <div key={r.repo} className="flex items-center gap-3">
+                  <span className={`text-[10px] px-2 py-0.5 font-mono uppercase tracking-wider rounded ${
+                    r.result === 'created' ? 'bg-green-950/40 text-green-500 border border-green-900' :
+                    r.result === 'already exists' ? 'bg-yellow-950/40 text-yellow-500 border border-yellow-900' :
+                    'bg-red-950/40 text-red-500 border border-red-900'
+                  }`}>{r.result}</span>
+                  <span className="text-xs text-[#888] font-mono">{r.repo}</span>
+                  {r.url && (
+                    <a href={r.url} target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] text-green-400 hover:text-green-300 underline ml-auto">
+                      View MR
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {missingBranches && (
             <div className="border border-yellow-900/60 bg-[#111111] p-5 space-y-3 rounded-lg shadow-lg">
               <div className="flex items-start justify-between gap-3">
@@ -345,6 +405,12 @@ export default function Releases() {
                     <button onClick={createDeployMRs} disabled={creatingMRs}
                       className="px-4 py-2 bg-[#1a1a3a] hover:bg-[#1e1e45] disabled:opacity-50 text-blue-400 text-xs font-semibold uppercase tracking-wider transition-colors border border-blue-900 rounded">
                       {creatingMRs ? 'Creating MRs...' : 'Create Deploy MRs'}
+                    </button>
+                  )}
+                  {selected.status === 'active' && (
+                    <button onClick={createBackmergeMRs} disabled={creatingBackmergeMRs}
+                      className="px-4 py-2 bg-[#1a2a1a] hover:bg-[#1e351e] disabled:opacity-50 text-green-400 text-xs font-semibold uppercase tracking-wider transition-colors border border-green-900 rounded">
+                      {creatingBackmergeMRs ? 'Creating MRs...' : 'Backmerge main → stage'}
                     </button>
                   )}
                   {selected.status === 'active' && (
