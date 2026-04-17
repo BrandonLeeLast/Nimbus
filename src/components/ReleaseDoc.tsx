@@ -361,15 +361,28 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                       </span>
                       {t.group && (
                         <span className={`px-1.5 py-0.5 text-[9px] uppercase tracking-wider border font-medium ${
-                          t.group === 'SPORT' ? 'border-purple-800/60 bg-purple-950/30 text-purple-400' :
-                          t.group === 'CASINO' ? 'border-green-800/60 bg-green-950/30 text-green-400' :
-                          t.group === 'MOBILE' ? 'border-cyan-800/60 bg-cyan-950/30 text-cyan-400' :
-                          t.group === 'TECH_DEBT' ? 'border-orange-800/60 bg-orange-950/30 text-orange-400' :
-                          t.group === 'ICONS' ? 'border-pink-800/60 bg-pink-950/30 text-pink-400' :
-                          t.group === 'KNOWLEDGE' ? 'border-yellow-800/60 bg-yellow-950/30 text-yellow-400' :
+                          t.group === 'Sport' ? 'border-cyan-800/60 bg-cyan-950/30 text-cyan-400' :
+                          t.group === 'Racing' ? 'border-orange-800/60 bg-orange-950/30 text-orange-400' :
+                          t.group === 'Marketing/VIP' ? 'border-blue-800/60 bg-blue-950/30 text-blue-400' :
+                          t.group === 'Risk/KYC' ? 'border-red-800/60 bg-red-950/30 text-red-400' :
+                          t.group === 'Casino' ? 'border-pink-800/60 bg-pink-950/30 text-pink-400' :
+                          t.group === 'Left menu' ? 'border-gray-800/60 bg-gray-950/30 text-gray-400' :
+                          t.group === 'Betslip' ? 'border-indigo-800/60 bg-indigo-950/30 text-indigo-400' :
+                          t.group === 'Admin' ? 'border-amber-800/60 bg-amber-950/30 text-amber-400' :
+                          t.group === 'Registration' ? 'border-orange-700/60 bg-orange-900/30 text-orange-300' :
+                          t.group === 'Strapi' ? 'border-yellow-800/60 bg-yellow-950/30 text-yellow-400' :
+                          t.group === 'Markets' ? 'border-fuchsia-800/60 bg-fuchsia-950/30 text-fuchsia-400' :
+                          t.group === 'User Profile' ? 'border-teal-800/60 bg-teal-950/30 text-teal-400' :
+                          t.group === 'Promo Engine' ? 'border-violet-800/60 bg-violet-950/30 text-violet-400' :
+                          t.group === 'Data Free' ? 'border-lime-800/60 bg-lime-950/30 text-lime-400' :
+                          t.group === 'Icons' ? 'border-sky-800/60 bg-sky-950/30 text-sky-400' :
+                          t.group === 'Technical Debt' ? 'border-blue-700/60 bg-blue-900/30 text-blue-300' :
+                          t.group === 'Knowledge Share' ? 'border-rose-800/60 bg-rose-950/30 text-rose-400' :
+                          t.group === 'Communications' ? 'border-purple-800/60 bg-purple-950/30 text-purple-400' :
+                          t.group === 'Payment/s' ? 'border-green-800/60 bg-green-950/30 text-green-400' :
                           'border-[#2a2a2a] bg-[#111] text-[#888]'
                         }`}>
-                          {t.group.replace('_', ' ')}
+                          {t.group}
                         </span>
                       )}
                     </p>
@@ -382,18 +395,33 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                         className="mt-1.5 w-full bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] placeholder-[#3a3a3a] focus:outline-none focus:border-[#ff460b]" />
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <select value={t.risk} disabled={t.excluded}
-                      onChange={e => {
-                        const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, risk: e.target.value } : x);
-                        onChange({ tickets });
-                      }}
-                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] focus:outline-none disabled:opacity-40">
-                      <option value="">Risk?</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <select value={t.risk} disabled={t.excluded}
+                        onChange={e => {
+                          const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, risk: e.target.value } : x);
+                          onChange({ tickets });
+                        }}
+                        className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] focus:outline-none disabled:opacity-40">
+                        <option value="">Risk?</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                      <button
+                        title={t.excluded ? 'Excluded from PDF — click to include' : 'Click to hide from PDF'}
+                        onClick={() => {
+                          const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, excluded: !x.excluded } : x);
+                          onChange({ tickets, ticketCount: tickets.filter(x => !x.excluded).length });
+                        }}
+                        className={`text-xs px-2 py-1 border font-medium transition-colors ${
+                          t.excluded
+                            ? 'border-red-900/50 bg-red-950/20 text-red-400 hover:bg-red-950/40'
+                            : 'border-[#2a2a2a] text-[#555] hover:border-red-900/50 hover:text-red-400'
+                        }`}>
+                        {t.excluded ? 'Hidden from PDF' : 'Hide from PDF'}
+                      </button>
+                    </div>
                     <select value={t.group || ''} disabled={t.excluded}
                       onChange={e => {
                         const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, group: e.target.value } : x);
@@ -401,26 +429,26 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                       }}
                       className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] focus:outline-none disabled:opacity-40">
                       <option value="">Group?</option>
-                      <option value="SPORT">SPORT</option>
-                      <option value="CASINO">CASINO</option>
-                      <option value="MOBILE">MOBILE</option>
-                      <option value="TECH_DEBT">Technical Debt</option>
-                      <option value="ICONS">Icons</option>
-                      <option value="KNOWLEDGE">Knowledge Share</option>
+                      <option value="Sport">Sport</option>
+                      <option value="Racing">Racing</option>
+                      <option value="Marketing/VIP">Marketing/VIP</option>
+                      <option value="Risk/KYC">Risk/KYC</option>
+                      <option value="Casino">Casino</option>
+                      <option value="Left menu">Left menu</option>
+                      <option value="Betslip">Betslip</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Registration">Registration</option>
+                      <option value="Strapi">Strapi</option>
+                      <option value="Markets">Markets</option>
+                      <option value="User Profile">User Profile</option>
+                      <option value="Promo Engine">Promo Engine</option>
+                      <option value="Data Free">Data Free</option>
+                      <option value="Icons">Icons</option>
+                      <option value="Technical Debt">Technical Debt</option>
+                      <option value="Knowledge Share">Knowledge Share</option>
+                      <option value="Communications">Communications</option>
+                      <option value="Payment/s">Payment/s</option>
                     </select>
-                    <button
-                      title={t.excluded ? 'Excluded from PDF — click to include' : 'Click to hide from PDF'}
-                      onClick={() => {
-                        const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, excluded: !x.excluded } : x);
-                        onChange({ tickets, ticketCount: tickets.filter(x => !x.excluded).length });
-                      }}
-                      className={`text-xs px-2 py-1 border font-medium transition-colors ${
-                        t.excluded
-                          ? 'border-red-900/50 bg-red-950/20 text-red-400 hover:bg-red-950/40'
-                          : 'border-[#2a2a2a] text-[#555] hover:border-red-900/50 hover:text-red-400'
-                      }`}>
-                      {t.excluded ? 'Hidden from PDF' : 'Hide from PDF'}
-                    </button>
                   </div>
                 </div>
                 </div>
