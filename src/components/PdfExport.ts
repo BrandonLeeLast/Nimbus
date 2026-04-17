@@ -20,6 +20,19 @@ const FOOTER_Y = PAGE_H - 12;
 const BODY_TOP = 20;
 const BODY_BOT = FOOTER_Y - 6;
 
+// ── Filename helper ──────────────────────────────────────────────────────────
+function generateFilename(date: string, isDraft: boolean, suffix?: string): string {
+  const dt = new Date(date);
+  const year = dt.getFullYear();
+  const month = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  const dateStr = `${year}${month}${day}`;
+  const status = isDraft ? 'draft' : 'final';
+  const parts = ['release', dateStr, status];
+  if (suffix) parts.push(suffix);
+  return `${parts.join('-')}.pdf`;
+}
+
 export function exportPdf(doc: ReleaseDoc, preview = false) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   let y = BODY_TOP;
@@ -750,7 +763,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
     const blobUrl = pdf.output('bloburl');
     window.open(blobUrl, '_blank');
   } else {
-    pdf.save(`${doc.release.name}.pdf`);
+    pdf.save(generateFilename(doc.release.date, isDraft));
   }
 }
 
@@ -824,7 +837,7 @@ export function exportExecOverviewPdf(doc: ExecDoc, preview = false) {
   for (let p = 1; p <= tp; p++) { pdf.setPage(p); pdf.setFillColor(255, 255, 255); pdf.rect(0, FY - 3, PW, 10, 'F'); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${p} / ${tp}`, PW / 2, FY, { align: 'center' }); }
 
   if (preview) window.open(pdf.output('bloburl'), '_blank');
-  else pdf.save(`${doc.releaseName}-executive-overview.pdf`);
+  else pdf.save(generateFilename(doc.releaseDate, doc.docStatus !== 'final', 'executive-overview'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -883,5 +896,5 @@ export function exportExecSummariesPdf(doc: ExecDoc, preview = false) {
   for (let p = 1; p <= tp; p++) { pdf.setPage(p); pdf.setFillColor(255, 255, 255); pdf.rect(0, FY - 3, PW, 10, 'F'); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...LIGHT); pdf.text(`${p} / ${tp}`, PW / 2, FY, { align: 'center' }); }
 
   if (preview) window.open(pdf.output('bloburl'), '_blank');
-  else pdf.save(`${doc.releaseName}-ticket-summaries.pdf`);
+  else pdf.save(generateFilename(doc.releaseDate, doc.docStatus !== 'final', 'ticket-summaries'));
 }
