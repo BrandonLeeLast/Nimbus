@@ -119,31 +119,56 @@ export default function Recon() {
   const [filterText, setFilterText] = useState('');
   const [filterState, setFilterState] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
 
   const applyFilter = <T extends { id: string; title: string; assignee: string; state: string }>(list: T[]) => {
     const q = filterText.toLowerCase();
     return list.filter(t =>
       (!q || t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)) &&
       (!filterState || t.state === filterState) &&
-      (!filterAssignee || t.assignee.toLowerCase().includes(filterAssignee.toLowerCase()))
+      (!filterAssignee || t.assignee.toLowerCase().includes(filterAssignee.toLowerCase())) &&
+      (!selectedUser || t.assignee.toLowerCase() === selectedUser.toLowerCase())
     );
   };
 
   // Pre-launch derived lists
-  const flagged = result?.releaseTickets.filter(t => !t.excluded && isFlagged(t.state)) ?? [];
-  const healthy = result?.releaseTickets.filter(t => !t.excluded && GOOD_STATES.has(t.state)) ?? [];
-  const unknown = result?.releaseTickets.filter(t => !t.excluded && t.state === 'Unknown') ?? [];
-  const excluded = result?.releaseTickets.filter(t => t.excluded) ?? [];
+  const flaggedRaw = result?.releaseTickets.filter(t => !t.excluded && isFlagged(t.state)) ?? [];
+  const healthyRaw = result?.releaseTickets.filter(t => !t.excluded && GOOD_STATES.has(t.state)) ?? [];
+  const unknownRaw = result?.releaseTickets.filter(t => !t.excluded && t.state === 'Unknown') ?? [];
+  const excludedRaw = result?.releaseTickets.filter(t => t.excluded) ?? [];
+  
+  const flagged = applyFilter(flaggedRaw);
+  const healthy = applyFilter(healthyRaw);
+  const unknown = applyFilter(unknownRaw);
+  const excluded = applyFilter(excludedRaw);
+  
   const allStageStates = [...new Set(result?.stageOnlyTickets.map(t => t.state) ?? [])].sort();
   const allStageAssignees = [...new Set(result?.stageOnlyTickets.map(t => t.assignee).filter(Boolean) ?? [])].sort();
   const filteredStageOnly = applyFilter(result?.stageOnlyTickets ?? []);
 
   // Post-launch derived lists
-  const notMovedToProd = result?.releaseTickets.filter(t => !t.excluded && isNotMovedToProd(t.state)) ?? [];
-  const movedToProd = result?.releaseTickets.filter(t => !t.excluded && POST_LAUNCH_DONE.has(t.state)) ?? [];
-  const allPostStates = [...new Set(notMovedToProd.map(t => t.state))].sort();
-  const allPostAssignees = [...new Set(notMovedToProd.map(t => t.assignee).filter(Boolean))].sort();
-  const filteredNotMoved = applyFilter(notMovedToProd);
+  const notMovedToProdRaw = result?.releaseTickets.filter(t => !t.excluded && isNotMovedToProd(t.state)) ?? [];
+  const movedToProdRaw = result?.releaseTickets.filter(t => !t.excluded && POST_LAUNCH_DONE.has(t.state)) ?? [];
+  
+  const notMovedToProd = applyFilter(notMovedToProdRaw);
+  const movedToProd = applyFilter(movedToProdRaw);
+  
+  const allPostStates = [...new Set(notMovedToProdRaw.map(t => t.state))].sort();
+  const allPostAssignees = [...new Set(notMovedToProdRaw.map(t => t.assignee).filter(Boolean))].sort();
+  const filteredNotMoved = notMovedToProd;
+  
+  // Get all unique assignees for the current mode
+  const allAssignees = mode === 'pre'
+    ? [...new Set([
+        ...flaggedRaw.map(t => t.assignee),
+        ...healthyRaw.map(t => t.assignee),
+        ...unknownRaw.map(t => t.assignee),
+        ...(result?.stageOnlyTickets.map(t => t.assignee) ?? [])
+      ].filter(Boolean))].sort()
+    : [...new Set([
+        ...notMovedToProdRaw.map(t => t.assignee),
+        ...movedToProdRaw.map(t => t.assignee)
+      ].filter(Boolean))].sort();
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -158,13 +183,13 @@ export default function Recon() {
           {/* Mode toggle */}
           <div className="flex border border-[#2a2a2a]">
             <button
-              onClick={() => { setMode('pre'); setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+              onClick={() => { setMode('pre'); setFilterText(''); setFilterState(''); setFilterAssignee(''); setSelectedUser(''); }}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors ${mode === 'pre' ? 'bg-[#ff460b] text-white' : 'text-[#555] hover:text-[#999]'}`}
             >
               Pre-Launch
             </button>
             <button
-              onClick={() => { setMode('post'); setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+              onClick={() => { setMode('post'); setFilterText(''); setFilterState(''); setFilterAssignee(''); setSelectedUser(''); }}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors border-l border-[#2a2a2a] ${mode === 'post' ? 'bg-[#ff460b] text-white' : 'text-[#555] hover:text-[#999]'}`}
             >
               Post-Launch
@@ -219,6 +244,31 @@ export default function Recon() {
             ))}
           </select>
         </div>
+
+        {/* Filter by User */}
+        {result && !loading && allAssignees.length > 0 && (
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#555] uppercase tracking-widest shrink-0">Filter by User</span>
+            <select
+              value={selectedUser}
+              onChange={e => setSelectedUser(e.target.value)}
+              className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
+            >
+              <option value="">All Users</option>
+              {allAssignees.map(assignee => (
+                <option key={assignee} value={assignee}>{assignee}</option>
+              ))}
+            </select>
+            {selectedUser && (
+              <button
+                onClick={() => setSelectedUser('')}
+                className="px-3 py-2 text-xs text-[#555] hover:text-white border border-[#2a2a2a] hover:border-[#ff460b] transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -254,14 +304,14 @@ export default function Recon() {
               </div>
 
               {flagged.length > 0 && (
-                <Section title="Flagged — Needs Attention" accent="border-red-900/60" titleColor="text-red-400">
+                <Section title="Flagged — Needs Attention" accent="border-red-900/60" titleColor="text-red-400" tickets={flagged}>
                   <p className="text-xs text-[#555] mb-3">These tickets are in the release but their YouTrack state suggests they may not be ready.</p>
                   <TicketTable tickets={flagged} showRepos youtrackBase={youtrackUrl} />
                 </Section>
               )}
 
               {result.stageOnlyTickets.length > 0 && (
-                <Section title={`Stage Only — Not in Release (${filteredStageOnly.length}/${result.stageOnlyTickets.length})`} accent="border-yellow-900/60" titleColor="text-yellow-400">
+                <Section title={`Stage Only — Not in Release (${filteredStageOnly.length}/${result.stageOnlyTickets.length})`} accent="border-yellow-900/60" titleColor="text-yellow-400" tickets={filteredStageOnly}>
                   <p className="text-xs text-[#555] mb-4">These tickets are marked as Staging / Stage Testing / Stage Approved on YouTrack but no commits were found for them in this release.</p>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     <input value={filterText} onChange={e => setFilterText(e.target.value)} placeholder="Search ID or title..."
@@ -286,20 +336,20 @@ export default function Recon() {
               )}
 
               {healthy.length > 0 && (
-                <Section title={`Healthy (${healthy.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
+                <Section title={`Healthy (${healthy.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible tickets={healthy}>
                   <TicketTable tickets={healthy} showRepos youtrackBase={youtrackUrl} />
                 </Section>
               )}
 
               {unknown.length > 0 && (
-                <Section title={`Unknown State (${unknown.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
+                <Section title={`Unknown State (${unknown.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible tickets={unknown}>
                   <p className="text-xs text-[#555] mb-3">Ticket not found in YouTrack or state couldn't be determined.</p>
                   <TicketTable tickets={unknown} showRepos youtrackBase={youtrackUrl} />
                 </Section>
               )}
 
               {excluded.length > 0 && (
-                <Section title={`Excluded (${excluded.length})`} accent="border-[#1f1f1f]" titleColor="text-[#333]" collapsible>
+                <Section title={`Excluded (${excluded.length})`} accent="border-[#1f1f1f]" titleColor="text-[#333]" collapsible tickets={excluded}>
                   <TicketTable tickets={excluded} showRepos youtrackBase={youtrackUrl} />
                 </Section>
               )}
@@ -323,7 +373,7 @@ export default function Recon() {
               </div>
 
               {notMovedToProd.length > 0 && (
-                <Section title={`Needs Moving to Prod (${filteredNotMoved.length}/${notMovedToProd.length})`} accent="border-amber-900/60" titleColor="text-amber-400">
+                <Section title={`Needs Moving to Prod (${filteredNotMoved.length}/${notMovedToProdRaw.length})`} accent="border-amber-900/60" titleColor="text-amber-400" tickets={filteredNotMoved}>
                   <p className="text-xs text-[#555] mb-4">These tickets were deployed in this release but haven't been moved to Production Testing, Production, or Closed on YouTrack. Ask the devs to update them.</p>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     <input value={filterText} onChange={e => setFilterText(e.target.value)} placeholder="Search ID or title..."
@@ -355,7 +405,7 @@ export default function Recon() {
               )}
 
               {movedToProd.length > 0 && (
-                <Section title={`In Prod (${movedToProd.length})`} accent="border-[#1f1f1f]" titleColor="text-green-500" collapsible>
+                <Section title={`In Prod (${movedToProd.length})`} accent="border-[#1f1f1f]" titleColor="text-green-500" collapsible tickets={movedToProd}>
                   <TicketTable tickets={movedToProd} showRepos youtrackBase={youtrackUrl} />
                 </Section>
               )}
@@ -372,25 +422,54 @@ export default function Recon() {
   );
 }
 
-function Section({ title, accent, titleColor, children, collapsible }: {
+function Section({ title, accent, titleColor, children, collapsible, tickets }: {
   title: string;
   accent: string;
   titleColor: string;
   children: React.ReactNode;
   collapsible?: boolean;
+  tickets?: Array<{ id: string; title: string }>;
 }) {
   const [open, setOpen] = useState(!collapsible);
+  const [copied, setCopied] = useState(false);
+  
+  const copyTickets = () => {
+    if (!tickets || tickets.length === 0) return;
+    const text = tickets.map(t => `${t.id}\n${t.title}`).join('\n\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  
   return (
     <div className={`border ${accent} bg-[#111]`}>
       <div
         className={`flex items-center justify-between px-5 py-3 border-b ${accent} ${collapsible ? 'cursor-pointer hover:bg-[#141414]' : ''}`}
-        onClick={() => collapsible && setOpen(v => !v)}
+        onClick={(e) => {
+          if (collapsible && !(e.target as HTMLElement).closest('button')) {
+            setOpen(v => !v);
+          }
+        }}
       >
         <div className="flex items-center gap-3">
           <div className={`w-[3px] h-3.5 ${titleColor.replace('text-', 'bg-')}`} />
           <span className={`text-[10px] font-semibold uppercase tracking-widest ${titleColor}`}>{title}</span>
         </div>
-        {collapsible && <span className="text-[#444] text-xs">{open ? '▲' : '▼'}</span>}
+        <div className="flex items-center gap-2">
+          {tickets && tickets.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyTickets();
+              }}
+              className="px-3 py-1 text-[10px] text-[#888] hover:text-white border border-[#2a2a2a] hover:border-[#ff460b] uppercase tracking-wider transition-colors"
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          )}
+          {collapsible && <span className="text-[#444] text-xs">{open ? '▲' : '▼'}</span>}
+        </div>
       </div>
       {open && <div className="p-5">{children}</div>}
     </div>
