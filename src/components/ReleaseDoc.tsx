@@ -35,6 +35,13 @@ export default function ReleaseDocEditor({ releaseId, doc: initial, onSaved }: P
   const [activeSection, setActiveSection] = useState<Section>('info');
   const [youtrackBase, setYoutrackBase] = useState('');
 
+  // Sync docStatus from parent when toggled externally (draft/final toggle in tab bar)
+  useEffect(() => {
+    if (initial.docStatus !== doc.docStatus) {
+      setDoc(d => ({ ...d, docStatus: initial.docStatus }));
+    }
+  }, [initial.docStatus]);
+
   useEffect(() => {
     api.get<Record<string, string>>('/settings')
       .then(s => { if (s['YOUTRACK_BASE_URL']) setYoutrackBase(s['YOUTRACK_BASE_URL'].replace(/\/$/, '')); })

@@ -456,17 +456,40 @@ export default function Releases() {
             </div>
 
             {/* Tabs */}
-            <div className="mx-6 mt-4 flex border-b border-[#2a2a2a]">
-              {(['document', 'executive'] as Tab[]).map(t => (
-                <button key={t} onClick={() => setTab(t)}
-                  className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 -mb-px ${
-                    tab === t
-                      ? 'border-[#ff460b] text-white'
-                      : 'border-transparent text-[#777] hover:text-[#999]'
+            <div className="mx-6 mt-4 flex items-center justify-between border-b border-[#2a2a2a]">
+              <div className="flex">
+                {(['document', 'executive'] as Tab[]).map(t => (
+                  <button key={t} onClick={() => setTab(t)}
+                    className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 -mb-px ${
+                      tab === t
+                        ? 'border-[#ff460b] text-white'
+                        : 'border-transparent text-[#777] hover:text-[#999]'
+                    }`}>
+                    {t === 'document' ? 'Release Document' : 'Executive Document'}
+                  </button>
+                ))}
+              </div>
+              {tab === 'document' && doc && (
+                <div className="flex items-center gap-2 pb-2">
+                  <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 border ${
+                    doc.docStatus === 'final'
+                      ? 'border-green-800/60 bg-green-950/20 text-green-400'
+                      : 'border-amber-800/60 bg-amber-950/20 text-amber-400'
                   }`}>
-                  {t === 'document' ? 'Release Document' : 'Executive Document'}
-                </button>
-              ))}
+                    {doc.docStatus === 'final' ? 'Final' : 'Draft'}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      const next = doc.docStatus === 'final' ? 'draft' : 'final';
+                      const updated = { ...doc, docStatus: next } as ReleaseDoc;
+                      setDoc(updated);
+                      await api.put(`/releases/${selectedId}/document`, updated);
+                    }}
+                    className="text-[10px] px-3 py-1 border border-[#2a2a2a] text-[#555] hover:border-[#ff460b] hover:text-white uppercase tracking-wider transition-colors">
+                    Mark as {doc.docStatus === 'final' ? 'Draft' : 'Final'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {loading && <p className="text-[#666] px-6 py-4 text-sm">Loading...</p>}

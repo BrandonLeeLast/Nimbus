@@ -117,6 +117,9 @@ export interface RiskFactors {
 }
 
 export interface ReleaseDoc {
+  // Draft / Final status
+  docStatus?: 'draft' | 'final';
+
   // Release info
   release: { name: string; date: string; branch: string };
   releaseLead: string;

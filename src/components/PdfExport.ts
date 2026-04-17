@@ -25,8 +25,17 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   let y = BODY_TOP;
   let page = 1;
   let totalPages = 0; // filled after first pass
+  const isDraft = doc.docStatus !== 'final';
 
   // ── Page management ─────────────────────────────────────────────────────────
+
+  const drawDraftWatermark = () => {
+    if (!isDraft) return;
+    pdf.setFontSize(80);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(220, 220, 220);
+    pdf.text('DRAFT', PAGE_W / 2, PAGE_H / 2, { align: 'center', angle: 45 });
+  };
 
   const needY = (space: number) => {
     if (y + space > BODY_BOT) {
@@ -39,6 +48,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
     pdf.addPage();
     page++;
     y = BODY_TOP;
+    drawDraftWatermark();
     drawHeader();
   };
 
@@ -315,10 +325,11 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   // ══════════════════════════════════════════════════════════════════════════════
 
   drawHeader();
+  drawDraftWatermark();
 
   // Document title
   y = 24;
-  title('Release Notes');
+  title(isDraft ? 'Release Notes - DRAFT' : 'Release Notes');
   gap(2);
 
   // ── Release Information ─────────────────────────────────────────────────────
@@ -486,126 +497,136 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   }
 
   // ── Library Versions ────────────────────────────────────────────────────────
-  h2('Library Versions');
+  const hasLibraries = doc.libraryVersions?.length || doc.externalDependencies?.length || doc.dbMigrations?.length || doc.envVarUpdates?.length;
+  if (hasLibraries) {
+    h2('Library Versions');
 
-  if (doc.libraryVersions?.length) {
-    h3('Shared Libraries');
-    table(
-      ['Library', 'Current Production Version', 'Deployment Version', 'Description', 'Breaking Changes?'],
-      [34, 32, 28, 42, 34],
-      doc.libraryVersions.map(l => [l.library, l.currentVersion, l.deployVersion, l.description, l.breakingChanges ? 'Yes' : 'No'])
-    );
-  }
+    if (doc.libraryVersions?.length) {
+      h3('Shared Libraries');
+      table(
+        ['Library', 'Current Production Version', 'Deployment Version', 'Description', 'Breaking Changes?'],
+        [34, 32, 28, 42, 34],
+        doc.libraryVersions.map(l => [l.library, l.currentVersion, l.deployVersion, l.description, l.breakingChanges ? 'Yes' : 'No'])
+      );
+    }
 
-  if (doc.externalDependencies?.length) {
-    h3('External Dependencies');
-    table(
-      ['Dependency', 'Affected Projects', 'Description', 'Breaking Changes?'],
-      [34, 34, 62, 40],
-      doc.externalDependencies.map(e => [e.dependency, e.affectedProjects, e.description, e.breakingChanges ? 'Yes' : 'No'])
-    );
-  }
+    if (doc.externalDependencies?.length) {
+      h3('External Dependencies');
+      table(
+        ['Dependency', 'Affected Projects', 'Description', 'Breaking Changes?'],
+        [34, 34, 62, 40],
+        doc.externalDependencies.map(e => [e.dependency, e.affectedProjects, e.description, e.breakingChanges ? 'Yes' : 'No'])
+      );
+    }
 
-  if (doc.dbMigrations?.length) {
-    h3('Database Migrations');
-    table(
-      ['Migration', 'Affected Database', 'Description'],
-      [42, 30, 98],
-      doc.dbMigrations.map(m => [m.migration, m.affectedDb, m.description])
-    );
-  }
+    if (doc.dbMigrations?.length) {
+      h3('Database Migrations');
+      table(
+        ['Migration', 'Affected Database', 'Description'],
+        [42, 30, 98],
+        doc.dbMigrations.map(m => [m.migration, m.affectedDb, m.description])
+      );
+    }
 
-  if (doc.envVarUpdates?.length) {
-    h3('Environment Variable Updates');
-    table(
-      ['Variable Name', 'Affected Projects', 'Old Value', 'New Value', 'Description'],
-      [40, 28, 30, 30, 42],
-      doc.envVarUpdates.map(e => [e.variable, e.affectedProjects, e.oldValue, e.newValue, e.description])
-    );
+    if (doc.envVarUpdates?.length) {
+      h3('Environment Variable Updates');
+      table(
+        ['Variable Name', 'Affected Projects', 'Old Value', 'New Value', 'Description'],
+        [40, 28, 30, 30, 42],
+        doc.envVarUpdates.map(e => [e.variable, e.affectedProjects, e.oldValue, e.newValue, e.description])
+      );
+    }
+
+    rule();
   }
 
   // ── Deployment Plan ─────────────────────────────────────────────────────────
-  h2('Deployment Plan');
+  const hasDeployment = doc.preDeployChecklist?.length || doc.deploymentOrder?.length;
+  if (hasDeployment) {
+    h2('Deployment Plan');
 
-  if (doc.preDeployChecklist?.length) {
-    h3('Pre-Deployment Checklist');
-    for (const item of doc.preDeployChecklist) checkbox(item.checked, item.item);
-    gap(2);
-  }
+    if (doc.preDeployChecklist?.length) {
+      h3('Pre-Deployment Checklist');
+      for (const item of doc.preDeployChecklist) checkbox(item.checked, item.item);
+      gap(2);
+    }
 
-  if (doc.deploymentOrder?.length) {
-    h3('Deployment Order');
-    doc.deploymentOrder.forEach((item, i) => numbered(i + 1, item));
-    gap(2);
+    if (doc.deploymentOrder?.length) {
+      h3('Deployment Order');
+      doc.deploymentOrder.forEach((item, i) => numbered(i + 1, item));
+      gap(2);
+    }
+
+    rule();
   }
 
   // ── Rollback Plan ───────────────────────────────────────────────────────────
-  h2('Rollback Plan');
+  const hasRollback = doc.rollbackTriggers?.length || doc.rollbackSteps?.length || doc.rollbackTime;
+  if (hasRollback) {
+    h2('Rollback Plan');
 
-  if (doc.rollbackTriggers?.length) {
-    boldLabel('Rollback Trigger Conditions:');
-    for (const t of doc.rollbackTriggers) bullet(t);
-    gap(2);
+    if (doc.rollbackTriggers?.length) {
+      boldLabel('Rollback Trigger Conditions:');
+      for (const t of doc.rollbackTriggers) bullet(t);
+      gap(2);
+    }
+
+    if (doc.rollbackSteps?.length) {
+      boldLabel('Rollback Steps:');
+      doc.rollbackSteps.forEach((s, i) => numbered(i + 1, s));
+      gap(2);
+    }
+
+    if (doc.rollbackTime) {
+      boldLabel('Estimated Rollback Time:');
+      bodyText(doc.rollbackTime, 4);
+    }
+
+    rule();
   }
-
-  if (doc.rollbackSteps?.length) {
-    boldLabel('Rollback Steps:');
-    doc.rollbackSteps.forEach((s, i) => numbered(i + 1, s));
-    gap(2);
-  }
-
-  if (doc.rollbackTime) {
-    boldLabel('Estimated Rollback Time:');
-    bodyText(doc.rollbackTime, 4);
-  }
-
-  rule();
 
   // ── Known Issues & Limitations ──────────────────────────────────────────────
-  h2('Known Issues & Limitations');
-  if (!doc.knownIssues?.length) {
-    bodyText('No known issues or limitations.');
-  } else {
+  if (doc.knownIssues?.length) {
+    h2('Known Issues & Limitations');
     for (const issue of doc.knownIssues) bullet(issue);
+    rule();
   }
-
-  rule();
 
   // ── Communication Plan ──────────────────────────────────────────────────────
-  h2('Communication Plan');
+  const hasComms = doc.stakeholders?.some(s => s.checked) || doc.deploymentWindow?.start || doc.deploymentWindow?.end;
+  if (hasComms) {
+    h2('Communication Plan');
 
-  if (doc.stakeholders?.length) {
-    h3('Stakeholder Notifications');
-    for (const item of doc.stakeholders) checkbox(item.checked, item.item);
-    gap(2);
+    if (doc.stakeholders?.length) {
+      h3('Stakeholder Notifications');
+      for (const item of doc.stakeholders) checkbox(item.checked, item.item);
+      gap(2);
+    }
+
+    if (doc.deploymentWindow?.start || doc.deploymentWindow?.end) {
+      h3('Deployment Window');
+      kv('Start Time', doc.deploymentWindow?.start || '');
+      kv('End Time', doc.deploymentWindow?.end || '');
+      kv('Estimated Downtime', doc.deploymentWindow?.estimatedDowntime || '');
+    }
+
+    rule();
   }
-
-  if (doc.deploymentWindow?.start || doc.deploymentWindow?.end) {
-    h3('Deployment Window');
-    kv('Start Time', doc.deploymentWindow?.start || '');
-    kv('End Time', doc.deploymentWindow?.end || '');
-    kv('Estimated Downtime', doc.deploymentWindow?.estimatedDowntime || '');
-  }
-
-  rule();
 
   // ── Post-Deployment ─────────────────────────────────────────────────────────
-  h2('Post-Deployment');
-
   if (doc.postDeployChecklist?.length) {
+    h2('Post-Deployment');
     h3('Verification Steps');
     for (const item of doc.postDeployChecklist) checkbox(item.checked, item.item);
+    rule();
   }
-
-  rule();
 
   // ── Additional Notes ────────────────────────────────────────────────────────
-  h2('Additional Notes');
-  if (doc.additionalNotes) {
+  if (doc.additionalNotes?.trim()) {
+    h2('Additional Notes');
     bodyText(doc.additionalNotes);
+    rule();
   }
-
-  rule();
 
   // ── Migration Rollback Scripts ─────────────────────────────────────────────
   const migrationsWithRollback = doc.dbMigrations?.filter(m => m.rollbackScript?.trim()) ?? [];
