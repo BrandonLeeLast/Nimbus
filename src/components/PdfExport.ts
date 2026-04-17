@@ -478,19 +478,46 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         pdf.text(ticketPart, M + 8, y);
         const ticketW = pdf.getTextWidth(ticketPart);
 
-        // - description - [@developer]
+        // - description - [GROUP] [@developer]
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(...DARK);
-        const devPart = t.assignee ? ` - [@${t.assignee}]` : '';
         const sep = ' - ';
-        const titleText = `${sep}${t.title}${devPart}`;
-        const titleLines = pdf.splitTextToSize(titleText, CW - 8 - ticketW);
-        pdf.text(titleLines[0], M + 8 + ticketW, y);
-        y += 5;
-
-        for (let i = 1; i < titleLines.length; i++) {
-          needY(5);
-          pdf.text(titleLines[i], M + 12, y);
+        const groupPart = t.group ? ` - ` : '';
+        const devPart = t.assignee ? ` [@${t.assignee}]` : '';
+        
+        // Calculate position for title
+        let currentX = M + 8 + ticketW;
+        pdf.text(sep + t.title, currentX, y);
+        const titleW = pdf.getTextWidth(sep + t.title);
+        currentX += titleW;
+        
+        // Add group tag in bold if present
+        if (t.group) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(` - [${t.group}]`, currentX, y);
+          const groupW = pdf.getTextWidth(` - [${t.group}]`);
+          currentX += groupW;
+          pdf.setFont('helvetica', 'normal');
+        }
+        
+        // Add developer name
+        if (devPart) {
+          pdf.text(devPart, currentX, y);
+        }
+        
+        // Handle line wrapping for full text
+        const fullText = `${sep}${t.title}${groupPart}${t.group ? `[${t.group}]` : ''}${devPart}`;
+        const titleLines = pdf.splitTextToSize(fullText, CW - 8 - ticketW);
+        
+        // If text wrapped, render remaining lines
+        if (titleLines.length > 1) {
+          y += 5;
+          for (let i = 1; i < titleLines.length; i++) {
+            needY(5);
+            pdf.text(titleLines[i], M + 12, y);
+            y += 5;
+          }
+        } else {
           y += 5;
         }
       }

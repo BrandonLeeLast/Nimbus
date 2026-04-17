@@ -347,16 +347,31 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                   }
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm leading-snug ${t.excluded ? 'line-through text-[#bbb]' : 'text-white'}`}>{t.title}</p>
-                    <p className="text-xs text-[#aaa] mt-0.5">
-                      {t.withTester
-                        ? <>
-                            {t.dev && <span className="text-white">{t.dev}</span>}
-                            <span className={`${t.dev ? 'ml-2' : ''} px-1.5 py-0.5 text-[9px] uppercase tracking-wider border border-blue-800/60 bg-blue-950/30 text-blue-400 font-medium`}>with tester</span>
-                            <span className="text-[#555] ml-2">{t.assignee}</span>
-                          </>
-                        : t.assignee
-                      }
-                      {t.priority ? ` · ${t.priority}` : ''}
+                    <p className="text-xs text-[#aaa] mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span>
+                        {t.withTester
+                          ? <>
+                              {t.dev && <span className="text-white">{t.dev}</span>}
+                              <span className={`${t.dev ? 'ml-2' : ''} px-1.5 py-0.5 text-[9px] uppercase tracking-wider border border-blue-800/60 bg-blue-950/30 text-blue-400 font-medium`}>with tester</span>
+                              <span className="text-[#555] ml-2">{t.assignee}</span>
+                            </>
+                          : t.assignee
+                        }
+                        {t.priority ? ` · ${t.priority}` : ''}
+                      </span>
+                      {t.group && (
+                        <span className={`px-1.5 py-0.5 text-[9px] uppercase tracking-wider border font-medium ${
+                          t.group === 'SPORT' ? 'border-purple-800/60 bg-purple-950/30 text-purple-400' :
+                          t.group === 'CASINO' ? 'border-green-800/60 bg-green-950/30 text-green-400' :
+                          t.group === 'MOBILE' ? 'border-cyan-800/60 bg-cyan-950/30 text-cyan-400' :
+                          t.group === 'TECH_DEBT' ? 'border-orange-800/60 bg-orange-950/30 text-orange-400' :
+                          t.group === 'ICONS' ? 'border-pink-800/60 bg-pink-950/30 text-pink-400' :
+                          t.group === 'KNOWLEDGE' ? 'border-yellow-800/60 bg-yellow-950/30 text-yellow-400' :
+                          'border-[#2a2a2a] bg-[#111] text-[#888]'
+                        }`}>
+                          {t.group.replace('_', ' ')}
+                        </span>
+                      )}
                     </p>
                     {!t.excluded && (
                       <input value={t.notes} placeholder="Risk notes..."
@@ -378,6 +393,20 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
+                    </select>
+                    <select value={t.group || ''} disabled={t.excluded}
+                      onChange={e => {
+                        const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, group: e.target.value } : x);
+                        onChange({ tickets });
+                      }}
+                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] focus:outline-none disabled:opacity-40">
+                      <option value="">Group?</option>
+                      <option value="SPORT">SPORT</option>
+                      <option value="CASINO">CASINO</option>
+                      <option value="MOBILE">MOBILE</option>
+                      <option value="TECH_DEBT">Technical Debt</option>
+                      <option value="ICONS">Icons</option>
+                      <option value="KNOWLEDGE">Knowledge Share</option>
                     </select>
                     <button
                       title={t.excluded ? 'Excluded from PDF — click to include' : 'Click to hide from PDF'}
