@@ -29,14 +29,6 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
 
   // ── Page management ─────────────────────────────────────────────────────────
 
-  const drawDraftWatermark = () => {
-    if (!isDraft) return;
-    pdf.setFontSize(80);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(220, 220, 220);
-    pdf.text('DRAFT', PAGE_W / 2, PAGE_H / 2, { align: 'center', angle: 45 });
-  };
-
   const needY = (space: number) => {
     if (y + space > BODY_BOT) {
       newPage();
@@ -48,7 +40,6 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
     pdf.addPage();
     page++;
     y = BODY_TOP;
-    drawDraftWatermark();
     drawHeader();
   };
 
@@ -325,7 +316,6 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
   // ══════════════════════════════════════════════════════════════════════════════
 
   drawHeader();
-  drawDraftWatermark();
 
   // Document title
   y = 24;
