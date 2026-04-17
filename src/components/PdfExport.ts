@@ -478,11 +478,11 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         pdf.text(ticketPart, M + 8, y);
         const ticketW = pdf.getTextWidth(ticketPart);
 
-        // - description - [GROUP] [@developer]
+        // - description - [GROUP1] [GROUP2] [@developer]
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(...DARK);
         const sep = ' - ';
-        const groupPart = t.group ? ` - ` : '';
+        const groupsPart = t.groups && t.groups.length > 0 ? ` - ${t.groups.map(g => `[${g}]`).join(' ')}` : '';
         const devPart = t.assignee ? ` [@${t.assignee}]` : '';
         
         // Calculate position for title
@@ -491,11 +491,12 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         const titleW = pdf.getTextWidth(sep + t.title);
         currentX += titleW;
         
-        // Add group tag in bold if present
-        if (t.group) {
+        // Add group tags in bold if present
+        if (t.groups && t.groups.length > 0) {
           pdf.setFont('helvetica', 'bold');
-          pdf.text(` - [${t.group}]`, currentX, y);
-          const groupW = pdf.getTextWidth(` - [${t.group}]`);
+          const groupsText = ` - ${t.groups.map(g => `[${g}]`).join(' ')}`;
+          pdf.text(groupsText, currentX, y);
+          const groupW = pdf.getTextWidth(groupsText);
           currentX += groupW;
           pdf.setFont('helvetica', 'normal');
         }
@@ -506,7 +507,7 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         }
         
         // Handle line wrapping for full text
-        const fullText = `${sep}${t.title}${groupPart}${t.group ? `[${t.group}]` : ''}${devPart}`;
+        const fullText = `${sep}${t.title}${groupsPart}${devPart}`;
         const titleLines = pdf.splitTextToSize(fullText, CW - 8 - ticketW);
         
         // If text wrapped, render remaining lines

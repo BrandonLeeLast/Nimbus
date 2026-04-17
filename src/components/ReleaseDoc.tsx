@@ -3,6 +3,63 @@ import { api, remapTicket } from '../api/client';
 import { exportPdf } from './PdfExport';
 import type { ReleaseDoc, DocRepo, DocSection, LibraryVersion, DbMigration, EnvVarUpdate, ExternalDependency } from '../api/client';
 
+const ALL_GROUPS = ['Sport', 'Racing', 'Marketing/VIP', 'Risk/KYC', 'Casino', 'Left menu', 'Betslip', 'Admin', 'Registration', 'Strapi', 'Markets', 'User Profile', 'Promo Engine', 'Data Free', 'Icons', 'Technical Debt', 'Knowledge Share', 'Communications', 'Payment/s'];
+
+function GroupDropdown({ groups, disabled, onChange }: { groups: string[]; disabled: boolean; onChange: (groups: string[]) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleGroup = (group: string) => {
+    const newGroups = groups.includes(group)
+      ? groups.filter(g => g !== group)
+      : [...groups, group];
+    onChange(newGroups);
+  };
+
+  const displayText = groups.length === 0 ? 'Groups?' : groups.length === 1 ? groups[0] : `${groups.length} selected`;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] hover:border-[#ff460b] focus:outline-none disabled:opacity-40 w-full text-left flex items-center justify-between"
+      >
+        <span className={groups.length === 0 ? 'text-[#555]' : ''}>{displayText}</span>
+        <span className="text-[#555]">▼</span>
+      </button>
+      {isOpen && !disabled && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d0d0d] border border-[#2a2a2a] z-50 max-h-64 overflow-y-auto shadow-lg">
+          <div className="p-2 grid grid-cols-2 gap-1">
+            {ALL_GROUPS.map(group => (
+              <label key={group} className="flex items-center gap-1.5 cursor-pointer hover:bg-[#111] px-1 py-0.5 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={groups.includes(group)}
+                  onChange={() => toggleGroup(group)}
+                  className="w-3 h-3 accent-[#ff460b]"
+                />
+                <span className="text-[10px] text-[#ccc]">{group}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   releaseId: string;
   doc: ReleaseDoc;
@@ -359,30 +416,39 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                         }
                         {t.priority ? ` · ${t.priority}` : ''}
                       </span>
-                      {t.group && (
-                        <span className={`px-1.5 py-0.5 text-[9px] uppercase tracking-wider border font-medium ${
-                          t.group === 'Sport' ? 'border-cyan-800/60 bg-cyan-950/30 text-cyan-400' :
-                          t.group === 'Racing' ? 'border-orange-800/60 bg-orange-950/30 text-orange-400' :
-                          t.group === 'Marketing/VIP' ? 'border-blue-800/60 bg-blue-950/30 text-blue-400' :
-                          t.group === 'Risk/KYC' ? 'border-red-800/60 bg-red-950/30 text-red-400' :
-                          t.group === 'Casino' ? 'border-pink-800/60 bg-pink-950/30 text-pink-400' :
-                          t.group === 'Left menu' ? 'border-gray-800/60 bg-gray-950/30 text-gray-400' :
-                          t.group === 'Betslip' ? 'border-indigo-800/60 bg-indigo-950/30 text-indigo-400' :
-                          t.group === 'Admin' ? 'border-amber-800/60 bg-amber-950/30 text-amber-400' :
-                          t.group === 'Registration' ? 'border-orange-700/60 bg-orange-900/30 text-orange-300' :
-                          t.group === 'Strapi' ? 'border-yellow-800/60 bg-yellow-950/30 text-yellow-400' :
-                          t.group === 'Markets' ? 'border-fuchsia-800/60 bg-fuchsia-950/30 text-fuchsia-400' :
-                          t.group === 'User Profile' ? 'border-teal-800/60 bg-teal-950/30 text-teal-400' :
-                          t.group === 'Promo Engine' ? 'border-violet-800/60 bg-violet-950/30 text-violet-400' :
-                          t.group === 'Data Free' ? 'border-lime-800/60 bg-lime-950/30 text-lime-400' :
-                          t.group === 'Icons' ? 'border-sky-800/60 bg-sky-950/30 text-sky-400' :
-                          t.group === 'Technical Debt' ? 'border-blue-700/60 bg-blue-900/30 text-blue-300' :
-                          t.group === 'Knowledge Share' ? 'border-rose-800/60 bg-rose-950/30 text-rose-400' :
-                          t.group === 'Communications' ? 'border-purple-800/60 bg-purple-950/30 text-purple-400' :
-                          t.group === 'Payment/s' ? 'border-green-800/60 bg-green-950/30 text-green-400' :
-                          'border-[#2a2a2a] bg-[#111] text-[#888]'
-                        }`}>
-                          {t.group}
+                      {t.groups && t.groups.length > 0 && (
+                        <span className="flex gap-1 flex-wrap">
+                          {t.groups.map((group, gi) => {
+                            const getGroupColor = (g: string) => {
+                              switch (g) {
+                                case 'Sport': return 'border-cyan-800/60 bg-cyan-950/30 text-cyan-400';
+                                case 'Racing': return 'border-orange-800/60 bg-orange-950/30 text-orange-400';
+                                case 'Marketing/VIP': return 'border-blue-800/60 bg-blue-950/30 text-blue-400';
+                                case 'Risk/KYC': return 'border-red-800/60 bg-red-950/30 text-red-400';
+                                case 'Casino': return 'border-pink-800/60 bg-pink-950/30 text-pink-400';
+                                case 'Left menu': return 'border-gray-800/60 bg-gray-950/30 text-gray-400';
+                                case 'Betslip': return 'border-indigo-800/60 bg-indigo-950/30 text-indigo-400';
+                                case 'Admin': return 'border-amber-800/60 bg-amber-950/30 text-amber-400';
+                                case 'Registration': return 'border-orange-700/60 bg-orange-900/30 text-orange-300';
+                                case 'Strapi': return 'border-yellow-800/60 bg-yellow-950/30 text-yellow-400';
+                                case 'Markets': return 'border-fuchsia-800/60 bg-fuchsia-950/30 text-fuchsia-400';
+                                case 'User Profile': return 'border-teal-800/60 bg-teal-950/30 text-teal-400';
+                                case 'Promo Engine': return 'border-violet-800/60 bg-violet-950/30 text-violet-400';
+                                case 'Data Free': return 'border-lime-800/60 bg-lime-950/30 text-lime-400';
+                                case 'Icons': return 'border-sky-800/60 bg-sky-950/30 text-sky-400';
+                                case 'Technical Debt': return 'border-blue-700/60 bg-blue-900/30 text-blue-300';
+                                case 'Knowledge Share': return 'border-rose-800/60 bg-rose-950/30 text-rose-400';
+                                case 'Communications': return 'border-purple-800/60 bg-purple-950/30 text-purple-400';
+                                case 'Payment/s': return 'border-green-800/60 bg-green-950/30 text-green-400';
+                                default: return 'border-[#2a2a2a] bg-[#111] text-[#888]';
+                              }
+                            };
+                            return (
+                              <span key={gi} className={`px-1.5 py-0.5 text-[9px] uppercase tracking-wider border font-medium ${getGroupColor(group)}`}>
+                                {group}
+                              </span>
+                            );
+                          })}
                         </span>
                       )}
                     </p>
@@ -422,33 +488,14 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                         {t.excluded ? 'Hidden from PDF' : 'Hide from PDF'}
                       </button>
                     </div>
-                    <select value={t.group || ''} disabled={t.excluded}
-                      onChange={e => {
-                        const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, group: e.target.value } : x);
+                    <GroupDropdown
+                      groups={t.groups || []}
+                      disabled={t.excluded}
+                      onChange={(newGroups) => {
+                        const tickets = repo.tickets.map((x, j) => j === ti ? { ...x, groups: newGroups.length > 0 ? newGroups : undefined } : x);
                         onChange({ tickets });
                       }}
-                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] focus:outline-none disabled:opacity-40">
-                      <option value="">Group?</option>
-                      <option value="Sport">Sport</option>
-                      <option value="Racing">Racing</option>
-                      <option value="Marketing/VIP">Marketing/VIP</option>
-                      <option value="Risk/KYC">Risk/KYC</option>
-                      <option value="Casino">Casino</option>
-                      <option value="Left menu">Left menu</option>
-                      <option value="Betslip">Betslip</option>
-                      <option value="Admin">Admin</option>
-                      <option value="Registration">Registration</option>
-                      <option value="Strapi">Strapi</option>
-                      <option value="Markets">Markets</option>
-                      <option value="User Profile">User Profile</option>
-                      <option value="Promo Engine">Promo Engine</option>
-                      <option value="Data Free">Data Free</option>
-                      <option value="Icons">Icons</option>
-                      <option value="Technical Debt">Technical Debt</option>
-                      <option value="Knowledge Share">Knowledge Share</option>
-                      <option value="Communications">Communications</option>
-                      <option value="Payment/s">Payment/s</option>
-                    </select>
+                    />
                   </div>
                 </div>
                 </div>

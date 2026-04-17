@@ -56,7 +56,7 @@ export interface DocTicket {
   suspicious?: string;  // reason if ticket looks wrong (stale, on hold, not found)
   dev?: string;         // GitLab MR author — the actual developer (when assignee is a tester)
   withTester?: boolean; // true when assignee is a known tester
-  group?: string;       // team group: SPORT, CASINO, MOBILE, etc.
+  groups?: string[];    // team groups: Sport, Casino, Mobile, etc.
 }
 
 export interface DocSection {
