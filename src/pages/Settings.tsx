@@ -46,6 +46,11 @@ export default function Settings() {
   const [scanExcludeSearching, setScanExcludeSearching] = useState(false);
   const scanExcludeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [youtrackProject, setYoutrackProject] = useState('INDEV');
+  const [testers, setTesters] = useState<string[]>([]);
+  const [newTester, setNewTester] = useState('');
+  const [testerSuggestions, setTesterSuggestions] = useState<{ id: string; name: string; login: string }[]>([]);
+  const [testerSearching, setTesterSearching] = useState(false);
+  const testerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Delete release modal state
   const [releases, setReleases] = useState<Release[]>([]);
@@ -64,6 +69,8 @@ export default function Settings() {
       if (s['YOUTRACK_PROJECT']) setYoutrackProject(s['YOUTRACK_PROJECT']);
       const se = s['SCAN_EXCLUDED_REPOS'];
       setScanExcluded(se ? se.split(',').map(p => p.trim()).filter(Boolean) : []);
+      const te = s['TESTERS'];
+      setTesters(te ? te.split(',').map((t: string) => t.trim()).filter(Boolean) : []);
     }).catch(() => null);
   }, []);
 
@@ -279,6 +286,82 @@ export default function Settings() {
             />
           </div>
         </Panel>
+
+        {/* Testers */}
+        <div>
+          <SectionTitle>Testers</SectionTitle>
+          <Panel>
+            <p className="text-xs text-[#555]">
+              Names listed here are known QA testers. When a ticket is assigned to one of them, the release doc will show the GitLab MR author (the dev) instead, with a "With Tester" badge.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {testers.map(t => (
+                <div key={t} className="flex items-center gap-1.5 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5">
+                  <span className="text-sm text-white">{t}</span>
+                  <button
+                    onClick={async () => {
+                      const updated = testers.filter(x => x !== t);
+                      setTesters(updated);
+                      await api.put('/settings/TESTERS', { value: updated.join(',') });
+                      flash(`Removed ${t}`);
+                    }}
+                    className="text-[#444] hover:text-red-400 transition-colors ml-1 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="relative mt-3">
+              <div className="flex gap-2">
+                <input
+                  value={newTester}
+                  onChange={e => {
+                    setNewTester(e.target.value);
+                    const q = e.target.value.trim();
+                    if (testerTimer.current) clearTimeout(testerTimer.current);
+                    if (q.length < 2) { setTesterSuggestions([]); return; }
+                    testerTimer.current = setTimeout(async () => {
+                      setTesterSearching(true);
+                      try {
+                        const res = await api.get<{ id: string; name: string; login: string }[]>(`/settings/youtrack-users?q=${encodeURIComponent(q)}`);
+                        setTesterSuggestions(res.filter(u => !testers.includes(u.name)));
+                      } catch { setTesterSuggestions([]); }
+                      finally { setTesterSearching(false); }
+                    }, 300);
+                  }}
+                  onKeyDown={async e => {
+                    if (e.key === 'Escape') { setTesterSuggestions([]); return; }
+                    if (e.key !== 'Enter') return;
+                    const val = newTester.trim();
+                    if (!val || testers.includes(val)) return;
+                    const updated = [...testers, val];
+                    setTesters(updated); setNewTester(''); setTesterSuggestions([]);
+                    await api.put('/settings/TESTERS', { value: updated.join(',') });
+                    flash(`Added ${val} as tester`);
+                  }}
+                  placeholder="Search YouTrack users..."
+                  className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white placeholder-[#333] focus:outline-none focus:border-[#ff460b] transition-colors"
+                />
+                {testerSearching && <span className="self-center text-xs text-[#555]">Searching...</span>}
+              </div>
+              {testerSuggestions.length > 0 && (
+                <div className="absolute z-10 left-0 right-0 bg-[#111] border border-[#2a2a2a] mt-1 max-h-48 overflow-y-auto">
+                  {testerSuggestions.map(u => (
+                    <button key={u.id}
+                      onClick={async () => {
+                        const updated = [...testers, u.name];
+                        setTesters(updated); setNewTester(''); setTesterSuggestions([]);
+                        await api.put('/settings/TESTERS', { value: updated.join(',') });
+                        flash(`Added ${u.name} as tester`);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#1a1a1a] transition-colors flex items-center gap-3">
+                      <span className="text-sm text-white">{u.name}</span>
+                      <span className="text-xs text-[#444] font-mono">@{u.login}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Panel>
+        </div>
 
         {/* Clear cache */}
         <Panel>

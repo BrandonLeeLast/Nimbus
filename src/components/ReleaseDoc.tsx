@@ -340,7 +340,17 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
                   }
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm leading-snug ${t.excluded ? 'line-through text-[#bbb]' : 'text-white'}`}>{t.title}</p>
-                    <p className="text-xs text-[#aaa] mt-0.5">{t.assignee}{t.priority ? ` · ${t.priority}` : ''}</p>
+                    <p className="text-xs text-[#aaa] mt-0.5">
+                      {t.withTester
+                        ? <>
+                            {t.dev && <span className="text-white">{t.dev}</span>}
+                            <span className={`${t.dev ? 'ml-2' : ''} px-1.5 py-0.5 text-[9px] uppercase tracking-wider border border-blue-800/60 bg-blue-950/30 text-blue-400 font-medium`}>with tester</span>
+                            <span className="text-[#555] ml-2">{t.assignee}</span>
+                          </>
+                        : t.assignee
+                      }
+                      {t.priority ? ` · ${t.priority}` : ''}
+                    </p>
                     {!t.excluded && (
                       <input value={t.notes} placeholder="Risk notes..."
                         onChange={e => {
@@ -421,7 +431,7 @@ function RepoChangeCard({ repo, onChange, youtrackBase, releaseId }: { repo: Doc
 function ByDevMini({ tickets }: { tickets: DocRepo['tickets'] }) {
   const map = new Map<string, string[]>();
   tickets.forEach(t => {
-    const dev = t.assignee || 'Unassigned';
+    const dev = (t.withTester && t.dev ? t.dev : t.assignee) || 'Unassigned';
     if (!map.has(dev)) map.set(dev, []);
     map.get(dev)!.push(t.id);
   });

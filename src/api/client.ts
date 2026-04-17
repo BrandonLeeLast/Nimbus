@@ -54,6 +54,8 @@ export interface DocTicket {
   notes: string;
   excluded: boolean;
   suspicious?: string;  // reason if ticket looks wrong (stale, on hold, not found)
+  dev?: string;         // GitLab MR author — the actual developer (when assignee is a tester)
+  withTester?: boolean; // true when assignee is a known tester
 }
 
 export interface DocSection {
