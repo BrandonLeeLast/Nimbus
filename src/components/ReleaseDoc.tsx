@@ -26,7 +26,7 @@ function GroupDropdown({ groups, disabled, onChange }: { groups: string[]; disab
     onChange(newGroups);
   };
 
-  const displayText = groups.length === 0 ? 'Groups?' : groups.length === 1 ? groups[0] : `${groups.length} selected`;
+  const displayText = groups.length === 0 ? 'Select groups...' : groups.length === 1 ? groups[0] : `${groups.length} groups selected`;
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -34,26 +34,45 @@ function GroupDropdown({ groups, disabled, onChange }: { groups: string[]; disab
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="bg-[#0d0d0d] border border-[#2a2a2a] px-2 py-1 text-xs text-[#ccc] hover:border-[#ff460b] focus:outline-none disabled:opacity-40 w-full text-left flex items-center justify-between"
+        className={`bg-[#0d0d0d] border px-3 py-1.5 text-xs hover:border-[#ff460b] focus:outline-none disabled:opacity-40 w-full text-left flex items-center justify-between gap-2 transition-colors ${
+          isOpen ? 'border-[#ff460b]' : 'border-[#2a2a2a]'
+        } ${groups.length > 0 ? 'text-white' : 'text-[#666]'}`}
       >
-        <span className={groups.length === 0 ? 'text-[#555]' : ''}>{displayText}</span>
-        <span className="text-[#555]">▼</span>
+        <span className="truncate">{displayText}</span>
+        <span className={`text-[10px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
       </button>
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d0d0d] border border-[#2a2a2a] z-50 max-h-64 overflow-y-auto shadow-lg">
-          <div className="p-2 grid grid-cols-2 gap-1">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d0d0d] border border-[#ff460b] z-50 max-h-80 overflow-y-auto shadow-2xl" style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#ff460b #1a1a1a'
+        }}>
+          <div className="p-3 grid grid-cols-2 gap-1.5">
             {ALL_GROUPS.map(group => (
-              <label key={group} className="flex items-center gap-1.5 cursor-pointer hover:bg-[#111] px-1 py-0.5 transition-colors">
+              <label key={group} className="flex items-center gap-2 cursor-pointer hover:bg-[#1a1a1a] px-2 py-1.5 rounded transition-colors group">
                 <input
                   type="checkbox"
                   checked={groups.includes(group)}
                   onChange={() => toggleGroup(group)}
-                  className="w-3 h-3 accent-[#ff460b]"
+                  className="w-3.5 h-3.5 accent-[#ff460b] cursor-pointer"
                 />
-                <span className="text-[10px] text-[#ccc]">{group}</span>
+                <span className="text-[10px] text-[#999] group-hover:text-white transition-colors">{group}</span>
               </label>
             ))}
           </div>
+          {groups.length > 0 && (
+            <div className="border-t border-[#2a2a2a] p-2 flex justify-between items-center bg-[#0a0a0a]">
+              <span className="text-[9px] text-[#666] uppercase tracking-wider">{groups.length} selected</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange([]);
+                }}
+                className="text-[9px] text-[#ff460b] hover:text-white uppercase tracking-wider transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
