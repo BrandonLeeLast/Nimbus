@@ -35,13 +35,23 @@ interface YTSprint {
   archived: boolean;
 }
 
-// States considered healthy — code is ready for release
-const GOOD_STATES = new Set(['Stage Approved', 'Stage Testing', 'Staging', 'Production Testing', 'Production', 'Closed']);
+// States considered healthy pre-launch — code is staged and ready
+const PRE_LAUNCH_GOOD = new Set(['Stage Approved', 'Stage Testing', 'Staging', 'Production Testing', 'Production', 'Closed']);
 
-// Anything not in GOOD_STATES and not Unknown is flagged — avoids missing new state names
+// States considered done post-launch — ticket has moved to prod columns
+const POST_LAUNCH_DONE = new Set(['Production Testing', 'Production', 'Closed', 'Done', 'Verified', 'Deployed']);
+
+// Pre-launch: anything not in good states and not Unknown is flagged
 function isFlagged(state: string) {
-  return state !== 'Unknown' && !GOOD_STATES.has(state);
+  return state !== 'Unknown' && !PRE_LAUNCH_GOOD.has(state);
 }
+
+// Post-launch: ticket went in but hasn't moved to prod columns yet
+function isNotMovedToProd(state: string) {
+  return !POST_LAUNCH_DONE.has(state);
+}
+
+const GOOD_STATES = PRE_LAUNCH_GOOD;
 
 function stateColor(state: string) {
   if (GOOD_STATES.has(state)) return 'text-green-400 border-green-900/50 bg-green-950/20';
@@ -105,6 +115,7 @@ export default function Recon() {
     if (selectedId) runRecon(selectedId);
   }, [selectedId, runRecon]);
 
+  const [mode, setMode] = useState<'pre' | 'post'>('pre');
   const [filterText, setFilterText] = useState('');
   const [filterState, setFilterState] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
@@ -118,14 +129,21 @@ export default function Recon() {
     );
   };
 
+  // Pre-launch derived lists
   const flagged = result?.releaseTickets.filter(t => !t.excluded && isFlagged(t.state)) ?? [];
   const healthy = result?.releaseTickets.filter(t => !t.excluded && GOOD_STATES.has(t.state)) ?? [];
   const unknown = result?.releaseTickets.filter(t => !t.excluded && t.state === 'Unknown') ?? [];
   const excluded = result?.releaseTickets.filter(t => t.excluded) ?? [];
-
   const allStageStates = [...new Set(result?.stageOnlyTickets.map(t => t.state) ?? [])].sort();
   const allStageAssignees = [...new Set(result?.stageOnlyTickets.map(t => t.assignee).filter(Boolean) ?? [])].sort();
   const filteredStageOnly = applyFilter(result?.stageOnlyTickets ?? []);
+
+  // Post-launch derived lists
+  const notMovedToProd = result?.releaseTickets.filter(t => !t.excluded && isNotMovedToProd(t.state)) ?? [];
+  const movedToProd = result?.releaseTickets.filter(t => !t.excluded && POST_LAUNCH_DONE.has(t.state)) ?? [];
+  const allPostStates = [...new Set(notMovedToProd.map(t => t.state))].sort();
+  const allPostAssignees = [...new Set(notMovedToProd.map(t => t.assignee).filter(Boolean))].sort();
+  const filteredNotMoved = applyFilter(notMovedToProd);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -136,13 +154,30 @@ export default function Recon() {
           <div className="w-[3px] h-5 bg-[#ff460b]" />
           <h1 className="text-sm font-semibold text-white uppercase tracking-widest">Recon</h1>
         </div>
-        <button
-          onClick={() => selectedId && runRecon(selectedId)}
-          disabled={loading || !selectedId}
-          className="text-xs px-4 py-2 border border-[#2a2a2a] text-[#888] hover:border-[#ff460b] hover:text-white uppercase tracking-wider transition-colors disabled:opacity-30"
-        >
-          {loading ? 'Running...' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Mode toggle */}
+          <div className="flex border border-[#2a2a2a]">
+            <button
+              onClick={() => { setMode('pre'); setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+              className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors ${mode === 'pre' ? 'bg-[#ff460b] text-white' : 'text-[#555] hover:text-[#999]'}`}
+            >
+              Pre-Launch
+            </button>
+            <button
+              onClick={() => { setMode('post'); setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+              className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors border-l border-[#2a2a2a] ${mode === 'post' ? 'bg-[#ff460b] text-white' : 'text-[#555] hover:text-[#999]'}`}
+            >
+              Post-Launch
+            </button>
+          </div>
+          <button
+            onClick={() => selectedId && runRecon(selectedId)}
+            disabled={loading || !selectedId}
+            className="text-xs px-4 py-2 border border-[#2a2a2a] text-[#888] hover:border-[#ff460b] hover:text-white uppercase tracking-wider transition-colors disabled:opacity-30"
+          >
+            {loading ? 'Running...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Pickers */}
@@ -201,90 +236,130 @@ export default function Recon() {
       {result && !loading && (
         <div className="space-y-8">
 
-          {/* Summary bar */}
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: 'In Release', value: result.releaseTickets.filter(t => !t.excluded).length, color: 'text-white' },
-              { label: 'Flagged', value: flagged.length, color: flagged.length > 0 ? 'text-red-400' : 'text-white' },
-              { label: 'Stage Only', value: result.stageOnlyTickets.length, color: result.stageOnlyTickets.length > 0 ? 'text-yellow-400' : 'text-white' },
-              { label: 'Healthy', value: healthy.length, color: 'text-green-400' },
-            ].map(s => (
-              <div key={s.label} className="bg-[#111] border border-[#1a1a1a] px-4 py-3">
-                <p className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</p>
-                <p className="text-[10px] text-[#555] uppercase tracking-widest mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Flagged — needs attention */}
-          {flagged.length > 0 && (
-            <Section title="Flagged — Needs Attention" accent="border-red-900/60" titleColor="text-red-400">
-              <p className="text-xs text-[#555] mb-3">These tickets are in the release (code found in commits) but their YouTrack state suggests they may not be ready.</p>
-              <TicketTable tickets={flagged} showRepos youtrackBase={youtrackUrl} />
-            </Section>
-          )}
-
-          {/* Stage only — not in release */}
-          {result.stageOnlyTickets.length > 0 && (
-            <Section title={`Stage Only — Not in Release (${filteredStageOnly.length}/${result.stageOnlyTickets.length})`} accent="border-yellow-900/60" titleColor="text-yellow-400">
-              <p className="text-xs text-[#555] mb-4">These tickets are marked as Staging / Stage Testing / Stage Approved on YouTrack but no commits were found for them in this release.</p>
-
-              {/* Filters */}
-              <div className="flex gap-2 mb-4 flex-wrap">
-                <input
-                  value={filterText}
-                  onChange={e => setFilterText(e.target.value)}
-                  placeholder="Search ID or title..."
-                  className="flex-1 min-w-40 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white placeholder-[#3a3a3a] font-mono focus:outline-none focus:border-[#ff460b] transition-colors"
-                />
-                <select
-                  value={filterState}
-                  onChange={e => setFilterState(e.target.value)}
-                  className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
-                >
-                  <option value="">All states</option>
-                  {allStageStates.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select
-                  value={filterAssignee}
-                  onChange={e => setFilterAssignee(e.target.value)}
-                  className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors"
-                >
-                  <option value="">All assignees</option>
-                  {allStageAssignees.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-                {(filterText || filterState || filterAssignee) && (
-                  <button onClick={() => { setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
-                    className="px-3 py-1.5 text-xs text-[#555] hover:text-white border border-[#2a2a2a] transition-colors">
-                    Clear
-                  </button>
-                )}
+          {/* ── PRE-LAUNCH ── */}
+          {mode === 'pre' && (
+            <>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'In Release', value: result.releaseTickets.filter(t => !t.excluded).length, color: 'text-white' },
+                  { label: 'Flagged', value: flagged.length, color: flagged.length > 0 ? 'text-red-400' : 'text-white' },
+                  { label: 'Stage Only', value: result.stageOnlyTickets.length, color: result.stageOnlyTickets.length > 0 ? 'text-yellow-400' : 'text-white' },
+                  { label: 'Healthy', value: healthy.length, color: 'text-green-400' },
+                ].map(s => (
+                  <div key={s.label} className="bg-[#111] border border-[#1a1a1a] px-4 py-3">
+                    <p className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</p>
+                    <p className="text-[10px] text-[#555] uppercase tracking-widest mt-1">{s.label}</p>
+                  </div>
+                ))}
               </div>
 
-              <TicketTable tickets={filteredStageOnly} showRepos={false} youtrackBase={youtrackUrl} />
-            </Section>
+              {flagged.length > 0 && (
+                <Section title="Flagged — Needs Attention" accent="border-red-900/60" titleColor="text-red-400">
+                  <p className="text-xs text-[#555] mb-3">These tickets are in the release but their YouTrack state suggests they may not be ready.</p>
+                  <TicketTable tickets={flagged} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+
+              {result.stageOnlyTickets.length > 0 && (
+                <Section title={`Stage Only — Not in Release (${filteredStageOnly.length}/${result.stageOnlyTickets.length})`} accent="border-yellow-900/60" titleColor="text-yellow-400">
+                  <p className="text-xs text-[#555] mb-4">These tickets are marked as Staging / Stage Testing / Stage Approved on YouTrack but no commits were found for them in this release.</p>
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    <input value={filterText} onChange={e => setFilterText(e.target.value)} placeholder="Search ID or title..."
+                      className="flex-1 min-w-40 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white placeholder-[#3a3a3a] font-mono focus:outline-none focus:border-[#ff460b] transition-colors" />
+                    <select value={filterState} onChange={e => setFilterState(e.target.value)}
+                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors">
+                      <option value="">All states</option>
+                      {allStageStates.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}
+                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors">
+                      <option value="">All assignees</option>
+                      {allStageAssignees.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    {(filterText || filterState || filterAssignee) && (
+                      <button onClick={() => { setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+                        className="px-3 py-1.5 text-xs text-[#555] hover:text-white border border-[#2a2a2a] transition-colors">Clear</button>
+                    )}
+                  </div>
+                  <TicketTable tickets={filteredStageOnly} showRepos={false} youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+
+              {healthy.length > 0 && (
+                <Section title={`Healthy (${healthy.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
+                  <TicketTable tickets={healthy} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+
+              {unknown.length > 0 && (
+                <Section title={`Unknown State (${unknown.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
+                  <p className="text-xs text-[#555] mb-3">Ticket not found in YouTrack or state couldn't be determined.</p>
+                  <TicketTable tickets={unknown} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+
+              {excluded.length > 0 && (
+                <Section title={`Excluded (${excluded.length})`} accent="border-[#1f1f1f]" titleColor="text-[#333]" collapsible>
+                  <TicketTable tickets={excluded} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+            </>
           )}
 
-          {/* Healthy */}
-          {healthy.length > 0 && (
-            <Section title={`Healthy (${healthy.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
-              <TicketTable tickets={healthy} showRepos youtrackBase={youtrackUrl} />
-            </Section>
-          )}
+          {/* ── POST-LAUNCH ── */}
+          {mode === 'post' && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'In Release', value: result.releaseTickets.filter(t => !t.excluded).length, color: 'text-white' },
+                  { label: 'Needs Moving', value: notMovedToProd.length, color: notMovedToProd.length > 0 ? 'text-amber-400' : 'text-white' },
+                  { label: 'In Prod', value: movedToProd.length, color: 'text-green-400' },
+                ].map(s => (
+                  <div key={s.label} className="bg-[#111] border border-[#1a1a1a] px-4 py-3">
+                    <p className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</p>
+                    <p className="text-[10px] text-[#555] uppercase tracking-widest mt-1">{s.label}</p>
+                  </div>
+                ))}
+              </div>
 
-          {/* Unknown state */}
-          {unknown.length > 0 && (
-            <Section title={`Unknown State (${unknown.length})`} accent="border-[#1f1f1f]" titleColor="text-[#666]" collapsible>
-              <p className="text-xs text-[#555] mb-3">Ticket not found in YouTrack or state couldn't be determined.</p>
-              <TicketTable tickets={unknown} showRepos youtrackBase={youtrackUrl} />
-            </Section>
-          )}
+              {notMovedToProd.length > 0 && (
+                <Section title={`Needs Moving to Prod (${filteredNotMoved.length}/${notMovedToProd.length})`} accent="border-amber-900/60" titleColor="text-amber-400">
+                  <p className="text-xs text-[#555] mb-4">These tickets were deployed in this release but haven't been moved to Production Testing, Production, or Closed on YouTrack. Ask the devs to update them.</p>
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    <input value={filterText} onChange={e => setFilterText(e.target.value)} placeholder="Search ID or title..."
+                      className="flex-1 min-w-40 bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white placeholder-[#3a3a3a] font-mono focus:outline-none focus:border-[#ff460b] transition-colors" />
+                    <select value={filterState} onChange={e => setFilterState(e.target.value)}
+                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors">
+                      <option value="">All states</option>
+                      {allPostStates.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}
+                      className="bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ff460b] transition-colors">
+                      <option value="">All assignees</option>
+                      {allPostAssignees.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    {(filterText || filterState || filterAssignee) && (
+                      <button onClick={() => { setFilterText(''); setFilterState(''); setFilterAssignee(''); }}
+                        className="px-3 py-1.5 text-xs text-[#555] hover:text-white border border-[#2a2a2a] transition-colors">Clear</button>
+                    )}
+                  </div>
+                  <TicketTable tickets={filteredNotMoved} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
 
-          {/* Excluded */}
-          {excluded.length > 0 && (
-            <Section title={`Excluded (${excluded.length})`} accent="border-[#1f1f1f]" titleColor="text-[#333]" collapsible>
-              <TicketTable tickets={excluded} showRepos youtrackBase={youtrackUrl} />
-            </Section>
+              {notMovedToProd.length === 0 && (
+                <div className="border border-green-900/40 bg-green-950/10 px-5 py-8 text-center">
+                  <p className="text-green-400 text-sm font-medium">All tickets have been moved to prod columns.</p>
+                  <p className="text-[#555] text-xs mt-1">Nothing to action.</p>
+                </div>
+              )}
+
+              {movedToProd.length > 0 && (
+                <Section title={`In Prod (${movedToProd.length})`} accent="border-[#1f1f1f]" titleColor="text-green-500" collapsible>
+                  <TicketTable tickets={movedToProd} showRepos youtrackBase={youtrackUrl} />
+                </Section>
+              )}
+            </>
           )}
 
         </div>
