@@ -957,6 +957,52 @@ function NewReleaseModal({ onClose, onCreated }: NewReleaseModalProps) {
 
 function hydrateDoc(stored: ReleaseDoc): ReleaseDoc {
   const defaults = emptyDoc(stored.release?.name ?? '', stored.release?.date ?? '', stored.release?.branch ?? '');
+  const repos = (stored.repos ?? []).map(r => ({
+    ...r,
+    tickets: r.tickets ?? [],
+    sections: r.sections ?? [],
+  }));
+
+  // Backfill old manual tickets into repo cards so they show in Changes by Project.
+  for (const mt of (stored.manualTickets ?? [])) {
+    const repoName = String(mt.repo ?? '').trim();
+    if (!repoName) continue;
+
+    const ticket = {
+      id: mt.id,
+      title: mt.title,
+      assignee: mt.developer,
+      priority: '',
+      risk: '',
+      notes: mt.description ?? '',
+      excluded: false,
+      manual: true,
+      linkedTicket: mt.linkedTicket,
+      groups: undefined,
+    };
+
+    const existingRepoIdx = repos.findIndex(r => String(r.name ?? '').toLowerCase() === repoName.toLowerCase());
+    if (existingRepoIdx >= 0) {
+      if (!repos[existingRepoIdx].tickets.some(t => t.id === ticket.id)) {
+        repos[existingRepoIdx].tickets.push(ticket);
+      }
+      repos[existingRepoIdx].ticketCount = repos[existingRepoIdx].tickets.filter(t => !t.excluded).length;
+    } else {
+      repos.push({
+        repoId: `manual-${mt.id}`,
+        name: repoName,
+        path: '',
+        commitCount: 0,
+        ticketCount: 1,
+        deployStatus: 'deploy',
+        riskLevel: 'low',
+        notes: 'Contains manually added cards',
+        sections: [],
+        tickets: [ticket],
+      });
+    }
+  }
+
   return {
     ...defaults,
     ...stored,
@@ -977,11 +1023,7 @@ function hydrateDoc(stored: ReleaseDoc): ReleaseDoc {
     excludedTickets: stored.excludedTickets ?? [],
     signOff: { ...defaults.signOff, ...(stored.signOff ?? {}) },
     deploymentWindow: { ...defaults.deploymentWindow, ...(stored.deploymentWindow ?? {}) },
-    repos: (stored.repos ?? []).map(r => ({
-      ...r,
-      tickets: r.tickets ?? [],
-      sections: r.sections ?? [],
-    })),
+    repos,
   };
 }
 

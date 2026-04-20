@@ -478,46 +478,28 @@ export function exportPdf(doc: ReleaseDoc, preview = false) {
         pdf.text(ticketPart, M + 8, y);
         const ticketW = pdf.getTextWidth(ticketPart);
 
-        // - description - [GROUP1] [GROUP2] [@developer]
+        // Render the remainder once with proper wrapping to avoid duplicates/cutoff.
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(...DARK);
         const sep = ' - ';
         const groupsPart = t.groups && t.groups.length > 0 ? ` - ${t.groups.map(g => `[${g}]`).join(' ')}` : '';
         const devPart = t.assignee ? ` [@${t.assignee}]` : '';
-        
-        // Calculate position for title
-        let currentX = M + 8 + ticketW;
-        pdf.text(sep + t.title, currentX, y);
-        const titleW = pdf.getTextWidth(sep + t.title);
-        currentX += titleW;
-        
-        // Add group tags in bold if present
-        if (t.groups && t.groups.length > 0) {
-          pdf.setFont('helvetica', 'bold');
-          const groupsText = ` - ${t.groups.map(g => `[${g}]`).join(' ')}`;
-          pdf.text(groupsText, currentX, y);
-          const groupW = pdf.getTextWidth(groupsText);
-          currentX += groupW;
-          pdf.setFont('helvetica', 'normal');
-        }
-        
-        // Add developer name
-        if (devPart) {
-          pdf.text(devPart, currentX, y);
-        }
-        
-        // Handle line wrapping for full text
         const fullText = `${sep}${t.title}${groupsPart}${devPart}`;
-        const titleLines = pdf.splitTextToSize(fullText, CW - 8 - ticketW);
-        
-        // If text wrapped, render remaining lines
-        if (titleLines.length > 1) {
-          y += 5;
-          for (let i = 1; i < titleLines.length; i++) {
-            needY(5);
-            pdf.text(titleLines[i], M + 12, y);
+        const firstLineX = M + 8 + ticketW;
+        const firstLineWidth = CW - (8 + ticketW);
+        const wrapped = pdf.splitTextToSize(fullText, firstLineWidth);
+
+        if (wrapped.length > 0) {
+          pdf.text(wrapped[0], firstLineX, y);
+        }
+
+        if (wrapped.length > 1) {
+          for (let i = 1; i < wrapped.length; i++) {
             y += 5;
+            needY(5);
+            pdf.text(wrapped[i], M + 12, y);
           }
+          y += 5;
         } else {
           y += 5;
         }

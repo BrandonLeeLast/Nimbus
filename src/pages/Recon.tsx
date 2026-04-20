@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Release } from '../api/client';
+import type { Release, ReleaseRepo } from '../api/client';
 
 interface ReconTicket {
   id: string;
@@ -121,6 +121,20 @@ export default function Recon() {
   const [filterAssignee, setFilterAssignee] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [showManualAdd, setShowManualAdd] = useState(false);
+  const [releaseRepoNames, setReleaseRepoNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setReleaseRepoNames([]);
+      return;
+    }
+    api.get<ReleaseRepo[]>(`/releases/${selectedId}/repos`)
+      .then(rows => {
+        const names = [...new Set(rows.map(r => r.repo.name).filter(Boolean))].sort();
+        setReleaseRepoNames(names);
+      })
+      .catch(() => setReleaseRepoNames([]));
+  }, [selectedId]);
 
   const applyFilter = <T extends { id: string; title: string; assignee: string; state: string }>(list: T[]) => {
     const q = filterText.toLowerCase();
@@ -170,6 +184,11 @@ export default function Recon() {
         ...notMovedToProdRaw.map(t => t.assignee),
         ...movedToProdRaw.map(t => t.assignee)
       ].filter(Boolean))].sort();
+
+  const releaseDevelopers = [...new Set((result?.releaseTickets ?? []).map(t => t.assignee).filter(Boolean))].sort();
+  const releaseReposFromRecon = [...new Set((result?.releaseTickets ?? []).flatMap(t => t.repos).filter(Boolean))].sort();
+  const releaseTickets = [...new Set((result?.releaseTickets ?? []).map(t => t.id).filter(Boolean))].sort();
+  const releaseRepos = releaseRepoNames.length > 0 ? releaseRepoNames : releaseReposFromRecon;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -426,7 +445,14 @@ export default function Recon() {
         <div className="text-[#444] text-xs py-12 text-center">Select a release to run recon.</div>
       )}
 
-      {showManualAdd && <ManualCardModal selectedId={selectedId} onClose={() => setShowManualAdd(false)} onAdded={() => { setShowManualAdd(false); if (selectedId) runRecon(selectedId); }} />}
+      {showManualAdd && <ManualCardModal
+        selectedId={selectedId}
+        developerOptions={releaseDevelopers}
+        repoOptions={releaseRepos}
+        ticketOptions={releaseTickets}
+        onClose={() => setShowManualAdd(false)}
+        onAdded={() => { setShowManualAdd(false); if (selectedId) runRecon(selectedId); }}
+      />}
     </div>
   );
 }
@@ -525,7 +551,84 @@ function TicketTable({ tickets, showRepos, youtrackBase }: {
   );
 }
 
-function ManualCardModal({ selectedId, onClose, onAdded }: { selectedId: string; onClose: () => void; onAdded: () => void }) {
+function SuggestInput({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  helperText,
+  mono,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+  helperText?: string;
+  mono?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return options.slice(0, 8);
+    return options.filter(o => o.toLowerCase().includes(q)).slice(0, 8);
+  }, [options, value]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <label className="block text-[10px] text-[#777] uppercase tracking-widest mb-1.5">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={e => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        placeholder={placeholder}
+        className={`w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors ${mono ? 'font-mono' : ''}`}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-20 top-full left-0 right-0 mt-1 border border-[#2a2a2a] bg-[#111] shadow-xl max-h-48 overflow-y-auto">
+          {filtered.map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                onChange(opt);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-xs text-[#bbb] hover:bg-[#1a1a1a] hover:text-white border-b border-[#1a1a1a] last:border-b-0 transition-colors ${mono ? 'font-mono' : ''}`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+      {helperText && <p className="text-[10px] text-[#666] mt-1">{helperText}</p>}
+    </div>
+  );
+}
+
+function ManualCardModal({ selectedId, developerOptions, repoOptions, ticketOptions, onClose, onAdded }: {
+  selectedId: string;
+  developerOptions: string[];
+  repoOptions: string[];
+  ticketOptions: string[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
   const [ticketId, setTicketId] = useState('');
   const [title, setTitle] = useState('');
   const [developer, setDeveloper] = useState('');
@@ -562,27 +665,49 @@ function ManualCardModal({ selectedId, onClose, onAdded }: { selectedId: string;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-[#1a1a1a] border border-[#2a2a2a] p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white uppercase tracking-wider">Add Manual Card</h2>
-          <button onClick={onClose} className="text-[#666] hover:text-white text-xl">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[2px] px-4">
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-[#2a2a2a] bg-gradient-to-b from-[#171717] to-[#121212] shadow-[0_18px_70px_rgba(0,0,0,0.55)]">
+        <div className="flex items-center justify-between border-b border-[#2a2a2a] px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-[3px] h-5 bg-[#ff460b]" />
+            <div>
+              <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Add Manual Card</h2>
+              <p className="text-[11px] text-[#666] mt-0.5">Add work that was completed on another linked card</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 grid place-items-center border border-[#2a2a2a] text-[#666] hover:text-white hover:border-[#ff460b] transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Ticket ID</label>
-            <input
-              type="text"
-              value={ticketId}
-              onChange={e => setTicketId(e.target.value)}
-              placeholder="e.g., INDEV-1234"
-              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors font-mono"
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] text-[#777] uppercase tracking-widest mb-1.5">Ticket ID</label>
+              <input
+                type="text"
+                value={ticketId}
+                onChange={e => setTicketId(e.target.value)}
+                placeholder="e.g., INDEV-1234"
+                className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors font-mono"
+              />
+            </div>
+
+            <SuggestInput
+              label="Developer"
+              value={developer}
+              onChange={setDeveloper}
+              options={developerOptions}
+              placeholder={developerOptions.length > 0 ? 'Pick from release devs or type...' : 'Developer name'}
+              helperText={developerOptions.length > 0 ? `${developerOptions.length} in this release` : undefined}
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Title</label>
+            <label className="block text-[10px] text-[#777] uppercase tracking-widest mb-1.5">Title</label>
             <input
               type="text"
               value={title}
@@ -592,30 +717,29 @@ function ManualCardModal({ selectedId, onClose, onAdded }: { selectedId: string;
             />
           </div>
 
-          <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Developer</label>
-            <input
-              type="text"
-              value={developer}
-              onChange={e => setDeveloper(e.target.value)}
-              placeholder="Developer name"
-              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Repository</label>
-            <input
-              type="text"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SuggestInput
+              label="Repository"
               value={repo}
-              onChange={e => setRepo(e.target.value)}
-              placeholder="e.g., wsb-openbet-web"
-              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors"
+              onChange={setRepo}
+              options={repoOptions}
+              placeholder={repoOptions.length > 0 ? 'Pick from release repos or type...' : 'e.g., wsb-openbet-web'}
+              helperText={repoOptions.length > 0 ? `${repoOptions.length} in this release` : undefined}
+            />
+
+            <SuggestInput
+              label="Link To Another Card (Optional)"
+              value={linkedTicket}
+              onChange={setLinkedTicket}
+              options={ticketOptions}
+              placeholder={ticketOptions.length > 0 ? 'Pick a current release ticket or type...' : 'e.g., INDEV-5678'}
+              helperText="Link where the actual work happened"
+              mono
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Description (optional)</label>
+            <label className="block text-[10px] text-[#777] uppercase tracking-widest mb-1.5">Description (Optional)</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -624,36 +748,24 @@ function ManualCardModal({ selectedId, onClose, onAdded }: { selectedId: string;
             />
           </div>
 
-          <div>
-            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Link to Another Card (optional)</label>
-            <input
-              type="text"
-              value={linkedTicket}
-              onChange={e => setLinkedTicket(e.target.value)}
-              placeholder="e.g., INDEV-5678 (work was done here)"
-              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors font-mono"
-            />
-            <p className="text-xs text-[#666] mt-1">Link to the card where the actual work was done</p>
-          </div>
-
           {error && (
-            <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 text-red-400 text-xs rounded">
+            <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 text-red-400 text-xs">
               {error}
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#1f1f1f]">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#ff460b] uppercase tracking-wider text-xs transition-colors rounded"
+              className="px-4 py-2 border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#ff460b] uppercase tracking-wider text-xs transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-[#ff460b] hover:bg-[#ff5722] disabled:opacity-50 text-white uppercase tracking-wider text-xs font-semibold transition-colors rounded"
+              className="px-4 py-2 bg-[#ff460b] hover:bg-[#ff5722] disabled:opacity-50 text-white uppercase tracking-wider text-xs font-semibold transition-colors"
             >
               {loading ? 'Adding...' : 'Add Card'}
             </button>
