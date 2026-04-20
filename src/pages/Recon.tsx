@@ -120,6 +120,7 @@ export default function Recon() {
   const [filterState, setFilterState] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
+  const [showManualAdd, setShowManualAdd] = useState(false);
 
   const applyFilter = <T extends { id: string; title: string; assignee: string; state: string }>(list: T[]) => {
     const q = filterText.toLowerCase();
@@ -195,6 +196,12 @@ export default function Recon() {
               Post-Launch
             </button>
           </div>
+          <button
+            onClick={() => setShowManualAdd(true)}
+            className="text-xs px-4 py-2 border border-[#2a2a2a] text-[#888] hover:border-[#ff460b] hover:text-white uppercase tracking-wider transition-colors"
+          >
+            Add Manual Card
+          </button>
           <button
             onClick={() => selectedId && runRecon(selectedId)}
             disabled={loading || !selectedId}
@@ -418,6 +425,8 @@ export default function Recon() {
       {!result && !loading && !error && (
         <div className="text-[#444] text-xs py-12 text-center">Select a release to run recon.</div>
       )}
+
+      {showManualAdd && <ManualCardModal selectedId={selectedId} onClose={() => setShowManualAdd(false)} onAdded={() => { setShowManualAdd(false); if (selectedId) runRecon(selectedId); }} />}
     </div>
   );
 }
@@ -512,6 +521,145 @@ function TicketTable({ tickets, showRepos, youtrackBase }: {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ManualCardModal({ selectedId, onClose, onAdded }: { selectedId: string; onClose: () => void; onAdded: () => void }) {
+  const [ticketId, setTicketId] = useState('');
+  const [title, setTitle] = useState('');
+  const [developer, setDeveloper] = useState('');
+  const [repo, setRepo] = useState('');
+  const [description, setDescription] = useState('');
+  const [linkedTicket, setLinkedTicket] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ticketId.trim() || !title.trim() || !developer.trim() || !repo.trim()) {
+      setError('Ticket ID, Title, Developer, and Repo are required');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    try {
+      await api.post(`/releases/${selectedId}/manual-ticket`, {
+        id: ticketId.toUpperCase(),
+        title,
+        developer,
+        repo,
+        description,
+        linkedTicket: linkedTicket || undefined,
+      });
+      onAdded();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-[#1a1a1a] border border-[#2a2a2a] p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white uppercase tracking-wider">Add Manual Card</h2>
+          <button onClick={onClose} className="text-[#666] hover:text-white text-xl">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Ticket ID</label>
+            <input
+              type="text"
+              value={ticketId}
+              onChange={e => setTicketId(e.target.value)}
+              placeholder="e.g., INDEV-1234"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Card title"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Developer</label>
+            <input
+              type="text"
+              value={developer}
+              onChange={e => setDeveloper(e.target.value)}
+              placeholder="Developer name"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Repository</label>
+            <input
+              type="text"
+              value={repo}
+              onChange={e => setRepo(e.target.value)}
+              placeholder="e.g., wsb-openbet-web"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Additional context about this work"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors resize-none h-24"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#999] uppercase tracking-wider mb-1.5">Link to Another Card (optional)</label>
+            <input
+              type="text"
+              value={linkedTicket}
+              onChange={e => setLinkedTicket(e.target.value)}
+              placeholder="e.g., INDEV-5678 (work was done here)"
+              className="w-full bg-[#0d0d0d] border border-[#2a2a2a] px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#ff460b] transition-colors font-mono"
+            />
+            <p className="text-xs text-[#666] mt-1">Link to the card where the actual work was done</p>
+          </div>
+
+          {error && (
+            <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 text-red-400 text-xs rounded">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#ff460b] uppercase tracking-wider text-xs transition-colors rounded"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-[#ff460b] hover:bg-[#ff5722] disabled:opacity-50 text-white uppercase tracking-wider text-xs font-semibold transition-colors rounded"
+            >
+              {loading ? 'Adding...' : 'Add Card'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

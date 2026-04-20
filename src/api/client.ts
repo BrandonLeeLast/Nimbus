@@ -57,6 +57,18 @@ export interface DocTicket {
   dev?: string;         // GitLab MR author — the actual developer (when assignee is a tester)
   withTester?: boolean; // true when assignee is a known tester
   groups?: string[];    // team groups: Sport, Casino, Mobile, etc.
+  manual?: boolean;     // manually added ticket (not from GitLab commits)
+  linkedTicket?: string; // link to another ticket (e.g., work done on different card)
+}
+
+export interface ManualTicket {
+  id: string;
+  title: string;
+  developer: string;
+  repo: string;
+  description?: string;
+  linkedTicket?: string;
+  addedAt: string;
 }
 
 export interface DocSection {
@@ -138,6 +150,7 @@ export interface ReleaseDoc {
   // Repos + tickets (generated from GitLab)
   repos: DocRepo[];
   excludedTickets: string[];
+  manualTickets: ManualTicket[];
 
   // Library versions (manual)
   libraryVersions: LibraryVersion[];
@@ -196,6 +209,7 @@ export function emptyDoc(releaseName: string, releaseDate: string, branchName: s
     overview: '',
     repos: [],
     excludedTickets: [],
+    manualTickets: [],
     libraryVersions: [],
     externalDependencies: [],
     dbMigrations: [],
@@ -267,6 +281,9 @@ export interface ExecDeliverable {
 }
 
 export interface ExecDoc {
+  // Draft / Final status
+  docStatus?: 'draft' | 'final';
+
   // Release info (pre-filled from release doc)
   releaseName: string;
   releaseDate: string;
