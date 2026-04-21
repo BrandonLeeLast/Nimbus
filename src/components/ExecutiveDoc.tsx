@@ -43,6 +43,15 @@ export default function ExecutiveDocEditor({ releaseId }: Props) {
     setDirty(true);
   };
 
+  // Auto-save after 2 seconds of inactivity
+  useEffect(() => {
+    if (!dirty || saving || !doc) return;
+    const timer = setTimeout(() => {
+      save(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [doc, dirty, saving]);
+
   const generate = async () => {
     setGenerating(true);
     try {
@@ -58,13 +67,13 @@ export default function ExecutiveDocEditor({ releaseId }: Props) {
     }
   };
 
-  const save = async () => {
+  const save = async (isAutoSave = false) => {
     if (!doc) return;
     setSaving(true);
     try {
       await api.put(`/releases/${releaseId}/executive`, doc as unknown as Record<string, unknown>);
       setDirty(false);
-      setSaveMsg('Saved');
+      setSaveMsg(isAutoSave ? 'Auto-saved' : 'Saved');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (e: any) {
       setSaveMsg(`Error: ${e.message}`);

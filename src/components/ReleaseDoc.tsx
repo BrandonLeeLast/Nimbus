@@ -124,18 +124,27 @@ export default function ReleaseDocEditor({ releaseId, doc: initial, onSaved }: P
       .catch(() => null);
   }, []);
 
+  // Auto-save after 2 seconds of inactivity
+  useEffect(() => {
+    if (!dirty || saving) return;
+    const timer = setTimeout(() => {
+      save(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [doc, dirty, saving]);
+
   const update = (patch: Partial<ReleaseDoc>) => { setDoc(d => ({ ...d, ...patch })); setDirty(true); };
   const updateRepo = (idx: number, patch: Partial<DocRepo>) => {
     update({ repos: doc.repos.map((r, i) => i === idx ? { ...r, ...patch } : r) });
   };
 
-  const save = async () => {
+  const save = async (isAutoSave = false) => {
     setSaving(true);
     try {
       await api.put(`/releases/${releaseId}/document`, doc);
       onSaved(doc);
       setDirty(false);
-      setSaveMsg('Saved');
+      setSaveMsg(isAutoSave ? 'Auto-saved' : 'Saved');
       setTimeout(() => setSaveMsg(''), 2000);
     } catch (e) {
       setSaveMsg(`Error: ${String(e)}`);
