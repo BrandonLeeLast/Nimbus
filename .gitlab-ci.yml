@@ -1,0 +1,64 @@
+variables:
+  HARBOR_IMAGE: "$HARBOR_HOST/gitlab/nimbus"
+
+stages:
+  - create_env
+  - build_docker_image
+
+# ── Create .env file ──────────────────────────────────────────────────────────
+create-env-file:
+  image: node:alpine
+  stage: create_env
+  script:
+    - date '+%Y-%m-%d %H:%M:%S %Z'
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "main" ]]; then
+        echo "$main_env" > .env
+        echo "Using env: main"
+      elif [[ "$CI_COMMIT_BRANCH" == "stage" || "$CI_COMMIT_BRANCH" == release* ]]; then
+        echo "$staging_env" > .env
+        echo "Using env: stage"
+      elif [[ "$CI_COMMIT_BRANCH" == "uat" ]]; then
+        echo "$uat_env" > .env
+        echo "Using env: uat"
+      else
+        echo "$dev_env" > .env
+        echo "Using env: dev"
+      fi
+    - chmod 600 .env
+  artifacts:
+    paths:
+      - .env
+    expire_in: 1 hour
+  only:
+    - main
+
+# ── Build & push Docker image to Harbor ───────────────────────────────────────
+build-docker-image:
+  image: docker:latest
+  stage: build_docker_image
+  services:
+    - docker:dind
+  needs:
+    - job: create-env-file
+      artifacts: true
+  before_script:
+    - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" $HARBOR_HOST
+  script:
+    - date '+%Y-%m-%d %H:%M:%S %Z'
+    - |
+      DATE=$(date +%Y%m%d)
+      SHA_TAG=":sha-${CI_COMMIT_SHORT_SHA}"
+      DATED_TAG=":release-${DATE}"
+      echo "Building image with tags: :latest, ${DATED_TAG}, ${SHA_TAG}"
+      docker build \
+        -t "${HARBOR_IMAGE}:latest" \
+        -t "${HARBOR_IMAGE}${DATED_TAG}" \
+        -t "${HARBOR_IMAGE}${SHA_TAG}" .
+      docker push "${HARBOR_IMAGE}:latest"
+      docker push "${HARBOR_IMAGE}${DATED_TAG}"
+      docker push "${HARBOR_IMAGE}${SHA_TAG}"
+  only:
+    - main
+  tags:
+    - docker
